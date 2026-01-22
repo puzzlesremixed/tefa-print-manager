@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class PrintJob extends Model
 {
@@ -20,6 +22,14 @@ class PrintJob extends Model
         return $this->hasMany(PrintJobDetail::class, 'parent_id');
     }
 
+    public function scopeReadyToPrint($query)
+    {
+        return $query->where('status', 'queued')
+                     ->whereNull('locked_at')
+                     ->orderBy('priority', 'desc')
+                     ->orderBy('created_at', 'asc');
+    }
+
     /**
      * Check if all files in this order are finished.
      */
@@ -29,4 +39,29 @@ class PrintJob extends Model
             return in_array($detail->status, ['completed', 'canceled']);
         });
     }
+
+
+    /**
+     * Dispatch the job to the printer queue.
+     * Moves status from 'pending' to 'queued'.
+     *
+     * @throws Exception
+     */
+    public function dispatchToQueue(): void
+    {
+        if ($this->status !== 'pending') {
+            throw new Exception("Job cannot be queued. Current status: {$this->status}. Required: pending.");
+        }
+
+        DB::transaction(function () {
+            $this->update(['status' => 'queued']);
+
+            foreach ($this->details as $detail) {
+                if ($detail->status === 'pending') {
+                    $detail->setStatus('queued', 'Queued for printing.');
+                }
+            }
+        });
+    }
+
 }
