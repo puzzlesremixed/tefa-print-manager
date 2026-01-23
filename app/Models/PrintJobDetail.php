@@ -9,69 +9,69 @@ use Illuminate\Database\Eloquent\Builder;
 
 class PrintJobDetail extends Model
 {
-    protected $table = 'print_job_details';
+  protected $table = 'print_job_details';
 
-    protected $fillable = [
-        'parent_id',
-        'asset_id',
-        'print_color',
-        'price',
-        'status',
-        'priority',
-        'attempts',
-        'locked_at',
-    ];
+  protected $fillable = [
+    'parent_id',
+    'asset_id',
+    'print_color',
+    'price',
+    'status',
+    'priority',
+    'attempts',
+    'locked_at',
+  ];
 
-    protected $casts = [
-        'locked_at' => 'datetime',
-    ];
+  protected $casts = [
+    'locked_at' => 'datetime',
+  ];
 
-    // relationships
+  // relationships
 
-    public function job(): BelongsTo
-    {
-        return $this->belongsTo(PrintJob::class, 'parent_id');
-    }
+  public function job(): BelongsTo
+  {
+    return $this->belongsTo(PrintJob::class, 'parent_id');
+  }
 
-    public function asset(): BelongsTo
-    {
-        return $this->belongsTo(Asset::class);
-    }
+  public function asset(): BelongsTo
+  {
+    return $this->belongsTo(Asset::class);
+  }
 
-    public function logs(): HasMany
-    {
-        return $this->hasMany(PrintJobStatusLog::class, 'detail_id')->orderByDesc('created_at');
-    }
-
-
-    /**
-     * Scope to find jobs that are ready to print.
-     * Use: PrintJobDetail::readyToPrint()->first();
-     */
-    public function scopeReadyToPrint(Builder $query): void
-    {
-        $query->where('status', 'queued')
-              ->whereNull('locked_at') // Ensure no other worker is holding it
-              ->orderBy('priority', 'desc')
-              ->orderBy('created_at', 'asc');
-    }
+  public function logs(): HasMany
+  {
+    return $this->hasMany(PrintJobStatusLog::class, 'detail_id')->orderByDesc('created_at');
+  }
 
 
-    /**
-     * Update status and automatically create a log entry.
-     */
-    public function setStatus(string $newStatus, ?string $message = null): void
-    {
-        $this->update([
-            'status' => $newStatus,
-            'attempts' => $newStatus === 'failed' ? $this->attempts + 1 : $this->attempts,
-            'locked_at' => in_array($newStatus, ['completed', 'failed', 'canceled']) ? null : $this->locked_at,
-        ]);
+  /**
+   * Scope to find jobs that are ready to print.
+   * Use: PrintJobDetail::readyToPrint()->first();
+   */
+  public function scopeReadyToPrint(Builder $query): void
+  {
+    $query->where('status', 'queued')
+      ->whereNull('locked_at') // Ensure no other worker is holding it
+      ->orderBy('priority', 'desc')
+      ->orderBy('created_at', 'asc');
+  }
 
-        // Create the history log
-        $this->logs()->create([
-            'status' => $newStatus,
-            'message' => $message
-        ]);
-    }
+
+  /**
+   * Update status and automatically create a log entry.
+   */
+  public function setStatus(string $newStatus, ?string $message = null): void
+  {
+    $this->update([
+      'status' => $newStatus,
+      'attempts' => $newStatus === 'failed' ? $this->attempts + 1 : $this->attempts,
+      'locked_at' => in_array($newStatus, ['completed', 'failed', 'cancelled']) ? null : $this->locked_at,
+    ]);
+
+    // Create the history log
+    $this->logs()->create([
+      'status' => $newStatus,
+      'message' => $message
+    ]);
+  }
 }

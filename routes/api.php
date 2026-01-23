@@ -10,11 +10,11 @@ Route::post('/print-job', [PrintJobController::class, 'store'])->name('print-job
 // TODO : dummy routes!! disable this on prod
 // Mark order as paid
 Route::post('/print-job/{printJob}/pay', [PrintJobController::class, 'simulatePayment'])->name('print-jobs.simulatePayment');
+Route::post('/print-job/{printJob}/cancel', [PrintJobController::class, 'cancelPrintJob'])->name('print-jobs.cancelPrintJob');
 
 // Dispatch print job
-Route::post('/print-jobs/{printJob}/dispatch', [PrintJobController::class, 'dispatchJob'])
+Route::post('/print-job/{printJob}/dispatch', [PrintJobController::class, 'dispatchJob'])
   ->name('print-jobs.dispatch');
 
-  Route::post('/printer/webhook', [PrinterWebhookController::class, 'handle'])
-     ->name('api.printer.webhook');
-
+Route::post('/printer/webhook', [PrinterWebhookController::class, 'handle'])
+  ->name('api.printer.webhook');

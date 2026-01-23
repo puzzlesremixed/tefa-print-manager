@@ -16,9 +16,11 @@ return new class extends Migration
       $table->string('customer_number');
       $table->string('customer_name')->index();
       $table->integer('total_price');
+      $table->timestamp('paid_at')->nullable();
 
       // aggregate state (if all details are done, this one is done)
-      $table->enum('status',
+      $table->enum(
+        'status',
         [
           'pending_payment',  // havent paid
           'pending', // already paid, printing not started yet
@@ -27,7 +29,7 @@ return new class extends Migration
           'completed',
           'partially_failed',
           'failed',
-          'canceled'
+          'cancelled'
         ]
       );
       $table->timestamps();
@@ -41,7 +43,7 @@ return new class extends Migration
       $table->enum('print_color', ['color', 'bnw']);
       $table->integer('price');
 
-      $table->enum('status', ['pending', 'queued', 'printing', 'completed', 'failed', 'canceled'])->default('pending');
+      $table->enum('status', ['pending', 'queued', 'printing', 'completed', 'failed', 'cancelled'])->default('pending');
       $table->integer('priority')->default(0);
 
       $table->tinyInteger('attempts')->default(0); // track printing attempts, fails the job after certain amount

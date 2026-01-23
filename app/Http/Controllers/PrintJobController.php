@@ -124,6 +124,50 @@ class PrintJobController extends Controller
     }
   }
 
+  public function cancelPrintJob(PrintJob $printJob)
+  {
+    if ($printJob->status == 'running' || $printJob->status ==  'failed' || $printJob->status == 'completed' || $printJob->status ==  'partially_failed') {
+
+      if (request()->wantsJson() && !request()->header('X-Inertia')) {
+        return response()->json([
+          'error' => 'Invalid Request',
+          'message' => 'You cannot candel this print job. Current status: ' . $printJob->status
+        ], 400);
+      }
+
+      return back()->with('message', 'You cannot candel this print job.');
+    }
+
+    try {
+      DB::transaction(function () use ($printJob) {
+        $printJob->update([
+          'status' => 'cancelled'
+        ]);
+
+        foreach ($printJob->details as $detail) {
+          $detail->logs()->create([
+            'status' => 'cancelled',
+            'message' => 'Print job cancelled by admin.'
+          ]);
+        }
+      });
+
+      if (request()->wantsJson() && !request()->header('X-Inertia')) {
+        return response()->json([
+          'message' => 'Print job cancelled.',
+          'status' => $printJob->fresh()->status
+        ]);
+      }
+
+      return back()->with('message', 'Print job cancelled.');
+    } catch (\Exception $e) {
+      if (request()->wantsJson() && !request()->header('X-Inertia')) {
+        return response()->json(['error' => 'Fail to cancel the print job', 'details' => $e->getMessage()], 500);
+      }
+      return back()->withErrors(['status' => $e->getMessage()]);
+    }
+  }
+
   public function dispatchJob(PrintJob $printJob,  \App\Services\PrinterService $printerService)
   {
     try {

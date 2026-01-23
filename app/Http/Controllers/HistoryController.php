@@ -1,0 +1,24 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\PrintJob;
+use Inertia\Inertia;
+
+class HistoryController extends Controller
+{
+  public function index()
+  {
+    $query = PrintJob::with(['details.asset']);
+
+    $pastFiles = (clone $query)
+      ->where('status', 'cancelled')
+      ->orderBy('created_at', 'asc')
+      ->get();
+
+    return Inertia::render('history', [
+      'pastFiles' => $pastFiles,
+    ]);
+  }
+}
