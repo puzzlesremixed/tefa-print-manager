@@ -36,7 +36,7 @@ class PrinterService
 
         try {
           //TODO : change idk
-            $response = Http::timeout(10)->post('http://example.com/', [
+            $response = Http::timeout(10)->post('http://localhost:8000/api/jobs', [
                 'job_id' => $detail->id, 
                 'file_url' => asset('storage/' . $detail->asset->path),
                 'color_mode' => $detail->print_color,

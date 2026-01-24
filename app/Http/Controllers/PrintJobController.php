@@ -7,7 +7,9 @@ use App\Models\Asset;
 use App\Models\PrintJob;
 use App\Models\PrintJobDetail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 use setasign\Fpdi\Fpdi;
 
 class PrintJobController extends Controller
@@ -15,6 +17,15 @@ class PrintJobController extends Controller
   // TODO : Create an interface for editing this
   const PRICE_BNW = 500;
   const PRICE_COLOR = 1000;
+
+  public function show(string $id)
+  {
+    $query = PrintJob::with(['details.asset'])->findOrFail($id);
+
+    return Inertia::render('print-job/print-detail', [
+      'detail' => $query
+    ]);
+  }
 
   public function store(StorePrintJobRequest $request)
   {
