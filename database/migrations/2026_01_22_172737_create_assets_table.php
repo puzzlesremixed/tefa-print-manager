@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('assets', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('basename'); // file name with extension
             $table->string('filename'); // filename without extension
             $table->string('path');

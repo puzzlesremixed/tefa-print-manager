@@ -12,7 +12,7 @@ return new class extends Migration
   public function up(): void
   {
     Schema::create('print_jobs', function (Blueprint $table) {
-      $table->id();
+      $table->uuid('id')->primary();
       $table->string('customer_number');
       $table->string('customer_name')->index();
       $table->integer('total_price');
@@ -36,9 +36,9 @@ return new class extends Migration
     });
 
     Schema::create('print_job_details', function (Blueprint $table) {
-      $table->id();
-      $table->unsignedBigInteger('parent_id');
-      $table->unsignedBigInteger('asset_id');
+      $table->uuid('id')->primary();
+      $table->foreignUuid('parent_id')->constrained('print_jobs')->onDelete('cascade');
+      $table->foreignUuid('asset_id')->constrained('assets');
 
       $table->enum('print_color', ['color', 'bnw']);
       $table->integer('price');
@@ -52,20 +52,15 @@ return new class extends Migration
 
       $table->timestamps();
 
-      $table->foreign('parent_id')->references('id')->on('print_jobs')->onDelete('cascade');
-      $table->foreign('asset_id')->references('id')->on('assets');
-
       $table->index(['status', 'priority', 'created_at']);
     });
 
     Schema::create('print_job_status_logs', function (Blueprint $table) {
-      $table->id();
-      $table->unsignedBigInteger('detail_id');
+      $table->uuid('id')->primary();
+      $table->foreignUuid('detail_id')->constrained('print_job_details');
       $table->string('status');
       $table->text('message')->nullable();
       $table->timestamp('created_at')->useCurrent();
-
-      $table->foreign('detail_id')->references('id')->on('print_job_details');
     });
   }
   /**
@@ -73,8 +68,8 @@ return new class extends Migration
    */
   public function down(): void
   {
-    Schema::dropIfExists('print_jobs');
-    Schema::dropIfExists('print_job_details');
     Schema::dropIfExists('print_job_status_logs');
+    Schema::dropIfExists('print_job_details');
+    Schema::dropIfExists('print_jobs');
   }
 };

@@ -17,6 +17,7 @@ class PrinterService
         $isBusy = PrintJobDetail::where('status', 'printing')->exists();
 
         if ($isBusy) {
+            
             return; // Printer is busy
         }
         $nextItem = PrintJobDetail::readyToPrint()
@@ -24,6 +25,7 @@ class PrinterService
             ->first();
 
         if (!$nextItem) {
+            Log::info("no next item");
             return; 
         }
 
@@ -35,21 +37,39 @@ class PrinterService
         $detail->setStatus('printing', 'Sent to print server');
 
         try {
-          //TODO : change idk
-            $response = Http::timeout(10)->post('http://example.com/', [
-                'job_id' => $detail->id, 
-                'file_url' => asset('storage/' . $detail->asset->path),
-                'color_mode' => $detail->print_color,
-                'callback_url' => route('api.printer.webhook'), 
-            ]);
+            $printerApiUrl = 'http://localhost:8080/print'; // Should be in config
+            $filePath = $detail->asset->full_path;
+
+            if (!file_exists($filePath)) {
+                throw new \Exception("File not found at path: {$filePath}");
+            }
+
+            $response = Http::asMultipart()
+                ->attach(
+                    'files',
+                    file_get_contents($filePath),
+                    $detail->asset->basename
+                )
+                ->post($printerApiUrl, [
+                    'monochrome' => $detail->print_color === 'bnw',
+                    'copies' => 1,
+                ]);
 
             if ($response->failed()) {
-                $detail->setStatus('failed', 'Print Server rejected request: ' . $response->status());
+                $errorMessage = 'Print Server rejected request: ' . $response->status();
+                Log::info("rejected");
+                if ($response->json('message')) {
+                    $errorMessage .= ' - ' . $response->json('message');
+                } elseif ($response->json('error')) {
+                    $errorMessage .= ' - ' . $response->json('error');
+                }
+                $detail->setStatus('failed', $errorMessage);
                 $this->processNextItem(); // skips this entry
             }
 
+            Log::info($response->json('message'));
         } catch (\Exception $e) {
-            $detail->setStatus('failed', 'Connection to Print Server failed');
+            $detail->setStatus('failed', 'Connection to Print Server failed: ' . $e->getMessage());
             Log::error('Print Server Error: ' . $e->getMessage());
         }
     }
