@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Asset extends Model
 {
+    use HasUuids;
+
     protected $fillable = [
         'basename', 
         'filename', 
@@ -20,8 +24,8 @@ class Asset extends Model
      */
     public function getFullPathAttribute(): string
     {
-        // TODO : change file store
-        return storage_path('app/' . $this->path);
+        // Explicitly using local disk to match controller
+        return Storage::disk('local')->path($this->path);
     }
 
     public function printJobDetails(): HasMany

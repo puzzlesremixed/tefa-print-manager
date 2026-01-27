@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { basePrintJobColumns } from '@/types/column';
 import { PrintJob } from '@/types/data';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage, usePoll } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { HandCoins, Plus, Square, Triangle } from 'lucide-react';
 
@@ -104,6 +104,7 @@ export default function Queue({
   waitingPaymentFiles,
 }: QueueProps) {
   const { flash } = usePage();
+  usePoll(2000)
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Queue" />
@@ -113,7 +114,7 @@ export default function Queue({
             {flash.toast && <div className="toast">{flash.toast.message}</div>}
           </>
 
-          <h1 className="text-lg">Curently Running Print Job</h1>
+          <h1 className="text-xl">Curently Running Print Job</h1>
           <div>
             <Button className="mr-2 bg-green-700 text-white">
               <Triangle className="rotate-90" />

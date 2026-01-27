@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class PrintJobDetail extends Model
 {
+  use HasUuids;
+
   protected $table = 'print_job_details';
 
   protected $fillable = [
@@ -51,6 +54,7 @@ class PrintJobDetail extends Model
   public function scopeReadyToPrint(Builder $query): void
   {
     $query->where('status', 'queued')
+      ->orWhere('status', 'failed')
       ->whereNull('locked_at') // Ensure no other worker is holding it
       ->orderBy('priority', 'desc')
       ->orderBy('created_at', 'asc');

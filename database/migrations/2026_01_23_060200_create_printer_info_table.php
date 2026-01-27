@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('assets', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->string('basename'); // file name with extension
-            $table->string('filename'); // filename without extension
-            $table->string('path');
-            $table->string('extension');
-            $table->integer('pages');
+        Schema::create('printer_info', function (Blueprint $table) {
+            $table->id();
+            $table->string("name");
+            $table->integer("paper_remaining");
+            $table->enum("status", ["ready", "offline", "busy"]);
+            $table->boolean('primary')->default(false);
             $table->timestamps();
         });
     }
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('assets');
+        Schema::dropIfExists('printer_info');
     }
 };
