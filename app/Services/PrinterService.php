@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\PrintJobDetail;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 
 class PrinterService
 {
@@ -14,7 +15,11 @@ class PrinterService
      */
     public function processNextItem(): void
     {
-        $isBusy = PrintJobDetail::where('status', 'printing')->exists();
+        $isBusy = PrintJobDetail::where('status', 'printing')
+            ->orWhere('status', 'running')
+            ->exists();
+
+        Log::alert('Process next item' . $isBusy);
 
         if ($isBusy) {
             return;
@@ -33,11 +38,13 @@ class PrinterService
 
     private function sendToExternalPrinter(PrintJobDetail $detail): void
     {
+
         $detail->setStatus('printing', 'Sent to print server');
         $detail->job->updateAggregatedStatus();
 
         try {
             $printerApiUrl = 'http://localhost:8080/print';
+            $webhookUrl = route('api.printer.webhook');
             $filePath = $detail->asset->full_path;
 
             if (!file_exists($filePath)) {
@@ -45,6 +52,8 @@ class PrinterService
             }
 
             $payload = [
+                'job_detail_id' => $detail->id,
+                'webhook_url' => $webhookUrl,
                 'copies' => $detail->copies,
             ];
 
@@ -67,6 +76,8 @@ class PrinterService
                 $payload['pages'] = $detail->pages_to_print;
             }
 
+
+
             $response = Http::asMultipart()
                 ->attach(
                     'files',
@@ -76,24 +87,17 @@ class PrinterService
                 ->post($printerApiUrl, $payload);
 
             if ($response->successful()) {
-                $detail->setStatus('completed', 'Successfully processed by Print Server');
-                $detail->job->updateAggregatedStatus();
 
-                $this->processNextItem();
 
+                Log::info("Job {$detail->id} sent to spooler.");
             } else {
                 $errorMessage = 'Print Server rejected request: ' . $response->status();
                 if ($response->json('message')) {
                     $errorMessage .= ' - ' . $response->json('message');
-                } elseif ($response->json('error')) {
-                    $errorMessage .= ' - ' . $response->json('error');
-                } elseif ($response->json('errors')) {
-                    $errorMessage .= ' - ' . json_encode($response->json('errors'));
                 }
 
                 $detail->setStatus('failed', $errorMessage);
                 $detail->job->updateAggregatedStatus();
-
                 $this->processNextItem();
             }
 
@@ -101,7 +105,6 @@ class PrinterService
             $detail->setStatus('failed', 'Connection to Print Server failed: ' . $e->getMessage());
             $detail->job->updateAggregatedStatus();
             Log::error('Print Server Error: ' . $e->getMessage());
-
             $this->processNextItem();
         }
     }

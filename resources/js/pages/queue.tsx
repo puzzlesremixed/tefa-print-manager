@@ -7,7 +7,7 @@ import { basePrintJobColumns } from '@/types/column';
 import { PrintJob } from '@/types/data';
 import { Head, router, usePage, usePoll } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { HandCoins, Plus, Square, Triangle } from 'lucide-react';
+import { HandCoins, Play, Plus, Square, Triangle } from 'lucide-react';
 
 interface QueueProps {
   queuedFiles: PrintJob[];
@@ -20,6 +20,20 @@ const queueColumns: ColumnDef<PrintJob>[] = [
   {
     accessorKey: 'actions',
     header: 'Actions',
+
+    cell: ({ row }) => {
+      return (
+        <div className="flex gap-2">
+          <Button
+            className=""
+            variant={'secondary'}
+            onClick={() => cancelPrintJob(row.original.id)}
+          >
+            <Plus className="rotate-45" />
+          </Button>
+        </div>
+      );
+    },
   },
 ];
 
@@ -32,6 +46,13 @@ const pendingColumns: ColumnDef<PrintJob>[] = [
     cell: ({ row }) => {
       return (
         <div className="flex gap-2">
+          <Button
+            className=""
+            variant={'secondary'}
+            onClick={() => cancelPrintJob(row.original.id)}
+          >
+            <Play />
+          </Button>
           <Button
             className=""
             variant={'secondary'}
@@ -98,13 +119,24 @@ function cancelPrintJob(printJobId: number): void {
   );
 }
 
+function runAllPrintJob(): void {
+  router.post(
+    '/api/print-job-all/dispatch',
+    {},
+    {
+      preserveState: true,
+      preserveScroll: true,
+    },
+  );
+}
+
 export default function Queue({
   queuedFiles,
   pendingFiles,
   waitingPaymentFiles,
 }: QueueProps) {
   const { flash } = usePage();
-  usePoll(2000)
+  usePoll(2000);
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Queue" />
@@ -116,7 +148,10 @@ export default function Queue({
 
           <h1 className="text-xl">Curently Running Print Job</h1>
           <div>
-            <Button className="mr-2 bg-green-700 text-white">
+            <Button
+              onClick={runAllPrintJob}
+              className="mr-2 bg-green-700 text-white"
+            >
               <Triangle className="rotate-90" />
               Run
             </Button>

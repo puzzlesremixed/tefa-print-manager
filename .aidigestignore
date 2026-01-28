@@ -24,7 +24,11 @@ yarn-error.log
 /.vscode
 /.zed
 /storage
-/resources
+/resources/js/components
+/resources/js/routes
+/resources/js/pages/auth
+/resources/js/layouts
+/resources/js/actions
 composer.lock
 composer.json
 package-lock.json

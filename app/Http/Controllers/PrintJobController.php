@@ -6,16 +6,15 @@ use App\Models\Asset;
 use App\Models\PrintJob;
 use App\Models\PrintJobDetail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use setasign\Fpdi\Fpdi;
 
 class PrintJobController extends Controller
 {
-  // TODO : Create an interface for editing this
-  const PRICE_BNW = 500;
-  const PRICE_COLOR = 1000;
+  const PRICE_BNW = 1000;
+  const PRICE_COLOR = 2000;
 
   public function store(Request $request)
   {
@@ -75,11 +74,13 @@ class PrintJobController extends Controller
         foreach ($request->items as $item) {
           $uploadedFile = $item['file'];
           $colorMode = $item['color'];
+          $copies = $item['copies'] ?? 1;
 
           // Force 'local' disk to ensure consistency with Asset model
           $path = $uploadedFile->store('print_uploads', 'local');
 
-          $pages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->extension());
+          // Count pages using the external Node.js Printer Server
+          $pages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
 
           $asset = Asset::create([
             'basename' => $uploadedFile->getClientOriginalName(),
@@ -104,6 +105,8 @@ class PrintJobController extends Controller
               $dbColorMode = 'bnw';
               break;
             case 'auto':
+              // Default to B&W pricing for auto unless user specifies otherwise, 
+              // or could be logic to detect color pages (not implemented here)
               $numBnWPages = $pages;
               $dbColorMode = 'bnw';
               break;
@@ -112,13 +115,15 @@ class PrintJobController extends Controller
               $monochromePages = $colorMode;
               $bnwPagesArray = $this->parsePageRanges($colorMode);
               $bnwPageCount = 0;
+              
+              // Count how many pages in the document fall into the "B&W" range
               foreach ($bnwPagesArray as $page) {
                 if ($page <= $pages) {
                   $bnwPageCount++;
                 }
               }
               $numBnWPages = $bnwPageCount;
-              $numColorPages = $pages - $numBnWPages;
+              $numColorPages = max(0, $pages - $numBnWPages);
 
               if ($numColorPages > 0) {
                 $dbColorMode = 'color';
@@ -128,16 +133,21 @@ class PrintJobController extends Controller
               break;
           }
 
-          $itemPrice = ($numBnWPages * self::PRICE_BNW) + ($numColorPages * self::PRICE_COLOR);
-          $runningTotal += $itemPrice;
+          // Calculate price for one copy
+          $unitPrice = ($numBnWPages * self::PRICE_BNW) + ($numColorPages * self::PRICE_COLOR);
+          
+          // Calculate total item price based on copies
+          $totalItemPrice = $unitPrice * $copies;
+          
+          $runningTotal += $totalItemPrice;
 
           $detail = PrintJobDetail::create([
             'parent_id' => $job->id,
             'asset_id' => $asset->id,
             'print_color' => $dbColorMode,
-            'price' => $itemPrice,
+            'price' => $totalItemPrice, // Store the total price for this line item (including copies)
             'status' => 'pending',
-            'copies' => $item['copies'] ?? 1,
+            'copies' => $copies,
             'paper_size' => $item['paper_size'] ?? null,
             'scale' => $item['scale'] ?? null,
             'side' => $item['side'] ?? null,
@@ -302,20 +312,27 @@ class PrintJobController extends Controller
     }
   }
 
-  // Helper functions idk
-  private function countPages($filePath, $extension): int
+  // Helper functions
+  private function countPages($filePath, $originalName): int
   {
-    if (strtolower($extension) !== 'pdf') {
-      return 1;
-    }
+      try {
+          $printerServerUrl = 'http://localhost:8080/count-pages';
+          
+          $response = Http::timeout(5)->attach(
+              'file', 
+              file_get_contents($filePath), 
+              $originalName
+          )->post($printerServerUrl);
 
-    try {
-      $pdf = new Fpdi();
-      $pdf->setSourceFile($filePath);
-      return $pdf->setSourceFile($filePath);
-    } catch (\Exception $e) {
-      return 1;
-    }
+          if ($response->successful()) {
+              return (int) $response->json('pages');
+          }
+          
+          return 1;
+      } catch (\Exception $e) {
+          // If server is unreachable or fails, fallback to 1 to allow manual editing later if needed
+          return 1;
+      }
   }
 
   private function parsePageRanges(string $rangeString): array

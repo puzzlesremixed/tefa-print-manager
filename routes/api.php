@@ -15,9 +15,15 @@ Route::get('/print-job/{printJob}', [App\Http\Controllers\PrintJobController::cl
 Route::post('/print-job/{printJob}/pay', [PrintJobController::class, 'simulatePayment'])->name('print-jobs.simulatePayment');
 Route::post('/print-job/{printJob}/cancel', [PrintJobController::class, 'cancelPrintJob'])->name('print-jobs.cancelPrintJob');
 
-// Dispatch Print Job
+// Dispatch Queued Print Job (Typically called by the WhatsApp Bot API)
 Route::post('/print-job/{printJob}/dispatch', [PrintJobController::class, 'dispatchJob'])
   ->name('print-jobs.dispatch');
+
+
+// Dispatch All Queued Print Jobs (Typically called by the Admin panel)
+Route::post('/print-job-all/dispatch', [PrintJobController::class, 'dispatchAllJob'])
+  ->name('print-jobs.dispatch-all');
+
 
 // Get Printer List
 Route::get('/printers', [PrinterController::class, 'index'])->name('printers.index');
