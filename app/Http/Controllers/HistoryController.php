@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\PrintJob;
+use Illuminate\Auth\Events\Failed;
 use Inertia\Inertia;
 
 class HistoryController extends Controller
@@ -13,7 +14,7 @@ class HistoryController extends Controller
     $query = PrintJob::with(['details.asset']);
 
     $pastFiles = (clone $query)
-      ->where('status', 'cancelled')
+      ->whereIn('status', ['cancelled', 'completed', 'partially_failed', 'failed', ])
       ->orderBy('created_at', 'asc')
       ->get();
 
