@@ -382,6 +382,54 @@ trait ProfileValidationRules
 
 ```
 
+# app\Http\Controllers\Api\PrinterWebhookController.php
+
+```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\PrintJobDetail;
+use App\Services\PrinterService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+class PrinterWebhookController extends Controller
+{
+  public function handle(Request $request, PrinterService $printerService)
+  {
+    $validated = $request->validate([
+      'job_detail_id' => 'required|exists:print_job_details,id', // Matches standard ID or customized payload
+      'status' => 'required|in:completed,failed,cancelled',
+      'message' => 'nullable|string'
+    ]);
+
+    $detail = PrintJobDetail::find($validated['job_detail_id']);
+
+    if (!$detail) {
+        return response()->json(['message' => 'Job not found'], 404);
+    }
+
+    // Only update if it's currently printing or queued (avoid overwriting final states)
+    if (in_array($detail->status, ['printing', 'queued'])) {
+        $detail->setStatus($validated['status'], $validated['message'] ?? 'Update from Print Server');
+        
+        // Update the parent job status based on this new detail status
+        $detail->job->updateAggregatedStatus();
+
+        Log::info("Job {$detail->id} webhook update: {$validated['status']}");
+
+        // Trigger next item in queue
+        $printerService->processNextItem();
+    }
+
+    return response()->json(['message' => 'Status updated, next job triggered']);
+  }
+}
+
+```
+
 # app\Http\Controllers\Controller.php
 
 ```php
@@ -426,6 +474,46 @@ class HistoryController extends Controller
       'pastFiles' => $pastFiles,
     ]);
   }
+}
+
+```
+
+# app\Http\Controllers\PrinterController.php
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Support\Facades\Http;
+
+class PrinterController extends Controller
+{
+    // Removing Type Hint to match Parent::index()
+    public function index()
+    {
+        try {
+            $printerApiUrl = 'http://localhost:8080/printers'; // Should be in config
+            $response = Http::timeout(5)->get($printerApiUrl);
+
+            if ($response->failed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch printer list from the print server.',
+                    'details' => $response->json() ?? $response->body(),
+                ], $response->status());
+            }
+
+            return response()->json($response->json());
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not connect to the print server.',
+                'error' => $e->getMessage(),
+            ], 503); // Service Unavailable
+        }
+    }
 }
 
 ```
@@ -481,7 +569,6 @@ use App\Models\PrintJob;
 use App\Models\PrintJobDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use setasign\Fpdi\Fpdi;
 
@@ -549,7 +636,8 @@ class PrintJobController extends Controller
           $uploadedFile = $item['file'];
           $colorMode = $item['color'];
 
-          $path = $uploadedFile->store('print_uploads');
+          // Force 'local' disk to ensure consistency with Asset model
+          $path = $uploadedFile->store('print_uploads', 'local');
 
           $pages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->extension());
 
@@ -563,14 +651,18 @@ class PrintJobController extends Controller
 
           $numBnWPages = 0;
           $numColorPages = 0;
+          $dbColorMode = $colorMode;
 
           switch (strtolower($colorMode)) {
             case 'color':
               $numColorPages = $pages;
               break;
             case 'bnw':
+              $numBnWPages = $pages;
+              break;
             case 'auto':
               $numBnWPages = $pages;
+              $dbColorMode = 'bnw';
               break;
             default:
               // Assumes a page range for B&W pages, rest are color
@@ -583,6 +675,12 @@ class PrintJobController extends Controller
               }
               $numBnWPages = $bnwPageCount;
               $numColorPages = $pages - $numBnWPages;
+
+              if ($numColorPages > 0) {
+                $dbColorMode = 'color';
+              } else {
+                $dbColorMode = 'bnw';
+              }
               break;
           }
 
@@ -592,7 +690,7 @@ class PrintJobController extends Controller
           $detail = PrintJobDetail::create([
             'parent_id' => $job->id,
             'asset_id' => $asset->id,
-            'print_color' => $colorMode,
+            'print_color' => $dbColorMode,
             'price' => $itemPrice,
             'status' => 'pending',
           ]);
@@ -616,6 +714,14 @@ class PrintJobController extends Controller
     } catch (\Exception $e) {
       return response()->json(['error' => $e->getMessage()], 500);
     }
+  }
+
+  public function show(PrintJob $printJob)
+  {
+      return response()->json([
+          'success' => true,
+          'data' => $printJob->load(['details.asset', 'details.logs']),
+      ]);
   }
 
   public function simulatePayment(PrintJob $printJob)
@@ -709,7 +815,13 @@ class PrintJobController extends Controller
   public function dispatchJob(PrintJob $printJob,  \App\Services\PrinterService $printerService)
   {
     try {
-      $printJob->dispatchToQueue();
+      // If pending, dispatch it. If queued, it's fine. Otherwise error.
+      if ($printJob->status === 'pending') {
+          $printJob->dispatchToQueue();
+      } elseif ($printJob->status !== 'queued') {
+          throw new \Exception("Job cannot be queued. Current status: {$printJob->status}. Required: pending or queued.");
+      }
+
       $printerService->processNextItem();
 
       if (request()->wantsJson() && !request()->header('X-Inertia')) {
@@ -1212,11 +1324,15 @@ class StorePrintJobRequest extends FormRequest
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Asset extends Model
 {
+    use HasUuids;
+
     protected $fillable = [
         'basename', 
         'filename', 
@@ -1230,8 +1346,8 @@ class Asset extends Model
      */
     public function getFullPathAttribute(): string
     {
-        // TODO : change file store
-        return storage_path('app/' . $this->path);
+        // Explicitly using local disk to match controller
+        return Storage::disk('local')->path($this->path);
     }
 
     public function printJobDetails(): HasMany
@@ -1239,6 +1355,7 @@ class Asset extends Model
         return $this->hasMany(PrintJobDetail::class);
     }
 }
+
 ```
 
 # app\Models\PrintJob.php
@@ -1249,12 +1366,15 @@ class Asset extends Model
 namespace App\Models;
 
 use Exception;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
 class PrintJob extends Model
 {
+  use HasUuids;
+
   protected $fillable = [
     'customer_number',
     'customer_name',
@@ -1282,7 +1402,7 @@ class PrintJob extends Model
   public function isCompletelyFinished(): bool
   {
     return $this->details->every(function ($detail) {
-      return in_array($detail->status, ['completed', 'cancelled']);
+      return in_array($detail->status, ['completed', 'cancelled', 'failed']);
     });
   }
 
@@ -1309,6 +1429,57 @@ class PrintJob extends Model
       }
     });
   }
+
+  /**
+   * Re-evaluate the status of the PrintJob based on its details.
+   */
+  public function updateAggregatedStatus(): void
+  {
+    $this->load('details');
+    $details = $this->details;
+
+    if ($details->isEmpty()) {
+      return;
+    }
+
+    $total = $details->count();
+    $queued = $details->whereIn('status', ['queued', 'pending'])->count();
+    $printing = $details->where('status', 'printing')->count();
+    $completed = $details->where('status', 'completed')->count();
+    $failed = $details->where('status', 'failed')->count();
+    $cancelled = $details->where('status', 'cancelled')->count();
+
+    // If any item is currently printing, the job is running
+    if ($printing > 0) {
+      if ($this->status !== 'running') {
+        $this->update(['status' => 'running']);
+      }
+      return;
+    }
+
+    // If all items are processed (completed, failed, or cancelled)
+    if (($completed + $failed + $cancelled) === $total) {
+      if ($completed === $total) {
+        $this->update(['status' => 'completed']);
+      } elseif ($failed === $total) {
+        $this->update(['status' => 'failed']);
+      } elseif ($cancelled === $total) {
+        $this->update(['status' => 'cancelled']);
+      } else {
+        // Mixed results
+        $this->update(['status' => 'partially_failed']);
+      }
+      return;
+    }
+
+    // If we have some completed/failed items but still some queued, it's running
+    if (($completed > 0 || $failed > 0) && $queued > 0) {
+      if ($this->status !== 'running') {
+        $this->update(['status' => 'running']);
+      }
+      return;
+    }
+  }
 }
 
 ```
@@ -1320,13 +1491,16 @@ class PrintJob extends Model
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class PrintJobDetail extends Model
 {
+  use HasUuids;
+
   protected $table = 'print_job_details';
 
   protected $fillable = [
@@ -1369,6 +1543,7 @@ class PrintJobDetail extends Model
   public function scopeReadyToPrint(Builder $query): void
   {
     $query->where('status', 'queued')
+      ->orWhere('status', 'failed')
       ->whereNull('locked_at') // Ensure no other worker is holding it
       ->orderBy('priority', 'desc')
       ->orderBy('created_at', 'asc');
@@ -1403,11 +1578,14 @@ class PrintJobDetail extends Model
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PrintJobStatusLog extends Model
 {
+    use HasUuids;
+
     public $timestamps = false; 
 
     protected $fillable = [
@@ -1426,6 +1604,7 @@ class PrintJobStatusLog extends Model
         return $this->belongsTo(PrintJobDetail::class, 'detail_id');
     }
 }
+
 ```
 
 # app\Models\User.php
@@ -1658,14 +1837,15 @@ class PrinterService
         $isBusy = PrintJobDetail::where('status', 'printing')->exists();
 
         if ($isBusy) {
-            return; // Printer is busy
+            return;
         }
+
         $nextItem = PrintJobDetail::readyToPrint()
-            ->lockForUpdate() 
+            ->lockForUpdate()
             ->first();
 
         if (!$nextItem) {
-            return; 
+            return;
         }
 
         $this->sendToExternalPrinter($nextItem);
@@ -1674,27 +1854,59 @@ class PrinterService
     private function sendToExternalPrinter(PrintJobDetail $detail): void
     {
         $detail->setStatus('printing', 'Sent to print server');
+        $detail->job->updateAggregatedStatus();
 
         try {
-          //TODO : change idk
-            $response = Http::timeout(10)->post('http://example.com/', [
-                'job_id' => $detail->id, 
-                'file_url' => asset('storage/' . $detail->asset->path),
-                'color_mode' => $detail->print_color,
-                'callback_url' => route('api.printer.webhook'), 
-            ]);
+            $printerApiUrl = 'http://localhost:8080/print';
+            $filePath = $detail->asset->full_path;
 
-            if ($response->failed()) {
-                $detail->setStatus('failed', 'Print Server rejected request: ' . $response->status());
-                $this->processNextItem(); // skips this entry
+            if (!file_exists($filePath)) {
+                throw new \Exception("File not found at path: {$filePath}");
+            }
+
+            $response = Http::asMultipart()
+                ->attach(
+                    'files',
+                    file_get_contents($filePath),
+                    $detail->asset->basename
+                )
+                ->post($printerApiUrl, [
+                    'monochrome' => $detail->print_color === 'bnw',
+                    'copies' => 1,
+                ]);
+
+            if ($response->successful()) {
+                $detail->setStatus('completed', 'Successfully processed by Print Server');
+                $detail->job->updateAggregatedStatus();
+
+                $this->processNextItem();
+
+            } else {
+                $errorMessage = 'Print Server rejected request: ' . $response->status();
+                if ($response->json('message')) {
+                    $errorMessage .= ' - ' . $response->json('message');
+                } elseif ($response->json('error')) {
+                    $errorMessage .= ' - ' . $response->json('error');
+                } elseif ($response->json('errors')) {
+                    $errorMessage .= ' - ' . json_encode($response->json('errors'));
+                }
+
+                $detail->setStatus('failed', $errorMessage);
+                $detail->job->updateAggregatedStatus();
+
+                $this->processNextItem();
             }
 
         } catch (\Exception $e) {
-            $detail->setStatus('failed', 'Connection to Print Server failed');
+            $detail->setStatus('failed', 'Connection to Print Server failed: ' . $e->getMessage());
+            $detail->job->updateAggregatedStatus();
             Log::error('Print Server Error: ' . $e->getMessage());
+
+            $this->processNextItem();
         }
     }
 }
+
 ```
 
 # artisan
@@ -2464,7 +2676,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('assets', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('basename'); // file name with extension
             $table->string('filename'); // filename without extension
             $table->string('path');
@@ -2502,7 +2714,7 @@ return new class extends Migration
   public function up(): void
   {
     Schema::create('print_jobs', function (Blueprint $table) {
-      $table->id();
+      $table->uuid('id')->primary();
       $table->string('customer_number');
       $table->string('customer_name')->index();
       $table->integer('total_price');
@@ -2526,9 +2738,9 @@ return new class extends Migration
     });
 
     Schema::create('print_job_details', function (Blueprint $table) {
-      $table->id();
-      $table->unsignedBigInteger('parent_id');
-      $table->unsignedBigInteger('asset_id');
+      $table->uuid('id')->primary();
+      $table->foreignUuid('parent_id')->constrained('print_jobs')->onDelete('cascade');
+      $table->foreignUuid('asset_id')->constrained('assets');
 
       $table->enum('print_color', ['color', 'bnw']);
       $table->integer('price');
@@ -2542,20 +2754,15 @@ return new class extends Migration
 
       $table->timestamps();
 
-      $table->foreign('parent_id')->references('id')->on('print_jobs')->onDelete('cascade');
-      $table->foreign('asset_id')->references('id')->on('assets');
-
       $table->index(['status', 'priority', 'created_at']);
     });
 
     Schema::create('print_job_status_logs', function (Blueprint $table) {
-      $table->id();
-      $table->unsignedBigInteger('detail_id');
+      $table->uuid('id')->primary();
+      $table->foreignUuid('detail_id')->constrained('print_job_details');
       $table->string('status');
       $table->text('message')->nullable();
       $table->timestamp('created_at')->useCurrent();
-
-      $table->foreign('detail_id')->references('id')->on('print_job_details');
     });
   }
   /**
@@ -2563,9 +2770,9 @@ return new class extends Migration
    */
   public function down(): void
   {
-    Schema::dropIfExists('print_jobs');
-    Schema::dropIfExists('print_job_details');
     Schema::dropIfExists('print_job_status_logs');
+    Schema::dropIfExists('print_job_details');
+    Schema::dropIfExists('print_jobs');
   }
 };
 
@@ -2605,6 +2812,43 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('personal_access_tokens');
+    }
+};
+
+```
+
+# database\migrations\2026_01_23_060200_create_printer_info_table.php
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('printer_info', function (Blueprint $table) {
+            $table->id();
+            $table->sting("name");
+            $table->integer("paper_remaining");
+            $table->enum("status", ["ready", "offline", "busy"]);
+            $table->boolean('primary')->default(false);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('printer_info');
     }
 };
 
@@ -2756,10 +3000,10 @@ export default [
         "@radix-ui/react-collapsible": "^1.1.3",
         "@radix-ui/react-dialog": "^1.1.6",
         "@radix-ui/react-dropdown-menu": "^2.1.6",
-        "@radix-ui/react-label": "^2.1.2",
+        "@radix-ui/react-label": "^2.1.8",
         "@radix-ui/react-navigation-menu": "^1.2.5",
         "@radix-ui/react-select": "^2.1.6",
-        "@radix-ui/react-separator": "^1.1.2",
+        "@radix-ui/react-separator": "^1.1.8",
         "@radix-ui/react-slot": "^1.2.3",
         "@radix-ui/react-tabs": "^1.1.13",
         "@radix-ui/react-toggle": "^1.1.2",
@@ -2934,11 +3178,15 @@ Disallow:
 <?php
 
 use App\Http\Controllers\Api\PrinterWebhookController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PrintJobController;
+use App\Http\Controllers\PrinterController;
+use Illuminate\Support\Facades\Route;
 
 // Create a new order
 Route::post('/print-job', [PrintJobController::class, 'store'])->name('print-jobs.store');
+
+// Get a specific print job
+Route::get('/print-job/{printJob}', [PrintJobController::class, 'show'])->name('print-jobs.show');
 
 // TODO : dummy routes!! disable this on prod
 // Mark order as paid
@@ -2948,6 +3196,9 @@ Route::post('/print-job/{printJob}/cancel', [PrintJobController::class, 'cancelP
 // Dispatch print job
 Route::post('/print-job/{printJob}/dispatch', [PrintJobController::class, 'dispatchJob'])
   ->name('print-jobs.dispatch');
+
+// Get printer list
+Route::get('/printers', [PrinterController::class, 'index'])->name('printers.index');
 
 Route::post('/printer/webhook', [PrinterWebhookController::class, 'handle'])
   ->name('api.printer.webhook');
@@ -3011,27 +3262,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
 <?php
 
 use App\Http\Controllers\HistoryController;
+use App\Http\Controllers\PrintJobController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\QueueController;
 
 Route::get('/', function () {
-    return Inertia::render('welcome', [
-        'canRegister' => Features::enabled(Features::registration()),
-    ]);
+  return Inertia::render('welcome', [
+    'canRegister' => Features::enabled(Features::registration()),
+  ]);
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+  Route::get('dashboard', function () {
+    return Inertia::render('dashboard');
+  })->name('dashboard');
 
-    Route::get('/queue', [QueueController::class, 'index'])->name('queue');
-    Route::get('/history', [HistoryController::class, 'index'])->name('history');
+  Route::get('config', function () {
+    return Inertia::render('config');
+  })->name('config');
+
+  Route::get(
+    'print-job/{id}',
+    [PrintJobController::class, 'show']
+  )->name('printJob.detail');
+
+  Route::get('/queue', [QueueController::class, 'index'])->name('queue');
+  Route::get('/history', [HistoryController::class, 'index'])->name('history');
+  // Route::get('/history', [HistoryController::class, 'index'])->name('history');
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';
 
 ```
 

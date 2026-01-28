@@ -14,21 +14,18 @@ class PrinterService
      */
     public function processNextItem(): void
     {
-        // Check if there is physically a job marked as 'printing' (busy)
-        // This prevents double dispatching if we want strict serial printing.
         $isBusy = PrintJobDetail::where('status', 'printing')->exists();
 
         if ($isBusy) {
-            return; 
+            return;
         }
 
-        // Get the next queued item
         $nextItem = PrintJobDetail::readyToPrint()
-            ->lockForUpdate() 
+            ->lockForUpdate()
             ->first();
 
         if (!$nextItem) {
-            return; 
+            return;
         }
 
         $this->sendToExternalPrinter($nextItem);
@@ -36,57 +33,67 @@ class PrinterService
 
     private function sendToExternalPrinter(PrintJobDetail $detail): void
     {
-        // Mark as printing immediately so lockForUpdate logic works for other threads
         $detail->setStatus('printing', 'Sent to print server');
         $detail->job->updateAggregatedStatus();
 
         try {
-            $printerApiUrl = 'http://localhost:8080/print'; // Should be in config
+            $printerApiUrl = 'http://localhost:8080/print';
             $filePath = $detail->asset->full_path;
 
             if (!file_exists($filePath)) {
                 throw new \Exception("File not found at path: {$filePath}");
             }
 
-            // The Node server implementation provided is synchronous (await print).
-            // It returns 200 OK only after the job is sent to the printer spooler.
+            $payload = [
+                'copies' => $detail->copies,
+            ];
+
+            if ($detail->monochrome_pages) {
+                $payload['monorange'] = $detail->monochrome_pages;
+            } else {
+                $payload['monochrome'] = $detail->print_color === 'bnw';
+            }
+
+            if ($detail->paper_size) {
+                $payload['paperSize'] = $detail->paper_size;
+            }
+            if ($detail->scale) {
+                $payload['scale'] = $detail->scale;
+            }
+            if ($detail->side) {
+                $payload['side'] = $detail->side;
+            }
+            if ($detail->pages_to_print) {
+                $payload['pages'] = $detail->pages_to_print;
+            }
+
             $response = Http::asMultipart()
                 ->attach(
                     'files',
                     file_get_contents($filePath),
                     $detail->asset->basename
                 )
-                ->post($printerApiUrl, [
-                    'monochrome' => $detail->print_color === 'bnw',
-                    'copies' => 1,
-                    // 'callback_url' => route('api.printer.webhook') // Node code doesn't support this yet
-                ]);
+                ->post($printerApiUrl, $payload);
 
             if ($response->successful()) {
-                // Since Node server returns success after spooling, we mark as completed here.
-                // If the Node server supports webhooks in the future, we would leave it as 'printing'
-                // and wait for the webhook. But for now, avoiding the stuck queue is priority.
                 $detail->setStatus('completed', 'Successfully processed by Print Server');
                 $detail->job->updateAggregatedStatus();
 
-                // Recursively trigger the next item in the queue
                 $this->processNextItem();
 
             } else {
-                // Handle failure response
                 $errorMessage = 'Print Server rejected request: ' . $response->status();
                 if ($response->json('message')) {
                     $errorMessage .= ' - ' . $response->json('message');
                 } elseif ($response->json('error')) {
                     $errorMessage .= ' - ' . $response->json('error');
                 } elseif ($response->json('errors')) {
-                     $errorMessage .= ' - ' . json_encode($response->json('errors'));
+                    $errorMessage .= ' - ' . json_encode($response->json('errors'));
                 }
 
                 $detail->setStatus('failed', $errorMessage);
                 $detail->job->updateAggregatedStatus();
 
-                // Even if failed, try the next one
                 $this->processNextItem();
             }
 
@@ -94,9 +101,7 @@ class PrinterService
             $detail->setStatus('failed', 'Connection to Print Server failed: ' . $e->getMessage());
             $detail->job->updateAggregatedStatus();
             Log::error('Print Server Error: ' . $e->getMessage());
-            
-            // Retry next item? Maybe pause? 
-            // For now, let's try processing the next one to avoid blocking the whole queue on one bad file.
+
             $this->processNextItem();
         }
     }

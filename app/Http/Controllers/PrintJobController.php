@@ -6,7 +6,6 @@ use App\Models\Asset;
 use App\Models\PrintJob;
 use App\Models\PrintJobDetail;
 use Illuminate\Support\Facades\DB;
-// use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -20,27 +19,31 @@ class PrintJobController extends Controller
 
   public function store(Request $request)
   {
-    $colorRule = function ($attribute, $value, $fail) {
+    $pageRangeRule = function ($attribute, $value, $fail) {
+      $parts = explode(',', $value);
+      foreach ($parts as $part) {
+        $part = trim($part);
+        // Regex to validate a number or a number-range
+        if (!preg_match('/^[1-9]\d*(-[1-9]\d*)?$/', $part)) {
+          $fail($attribute . ' contains an invalid page or page range format. Use formats like "1", "1-10", or "1,5,10-12".');
+          return;
+        }
+        if (str_contains($part, '-')) {
+          list($start, $end) = explode('-', $part);
+          if (intval($start) >= intval($end)) {
+            $fail($attribute . ' has an invalid range where start (' . $start . ') is greater than or equal to end (' . $end . '): ' . $part);
+            return;
+          }
+        }
+      }
+    };
+
+    $colorRule = function ($attribute, $value, $fail) use ($pageRangeRule) {
       if (in_array(strtolower($value), ['color', 'bnw', 'auto'])) {
         return;
       }
-
-      // Must be either a simple range (e.g., "1-10") or a comma-separated list of numbers (e.g., "1,2,3,7").
-      // A mix like "1-3,7" is invalid.
-      $isRange = preg_match('/^[1-9]\d*-[1-9]\d*$/', $value);
-      $isList = preg_match('/^[1-9]\d*(,[1-9]\d*)*$/', $value);
-
-      if (!$isRange && !$isList) {
-        $fail($attribute . ' is not a valid page range format. Use a format like "1-10" or "1,2,3,7".');
-        return;
-      }
-
-      if ($isRange) {
-        list($start, $end) = explode('-', $value);
-        if (intval($start) > intval($end)) {
-          $fail($attribute . ' has an invalid range where start is greater than end.');
-        }
-      }
+      // If not a keyword, it must be a page range for monochrome pages
+      $pageRangeRule($attribute, $value, $fail);
     };
 
     $validator = $request->validate([
@@ -49,6 +52,11 @@ class PrintJobController extends Controller
       'items' => 'required|array',
       'items.*.file' => 'required|file',
       'items.*.color' => ['required', 'string', $colorRule],
+      'items.*.copies' => 'sometimes|integer|min:1',
+      'items.*.paper_size' => 'sometimes|string|max:255',
+      'items.*.scale' => 'sometimes|string|in:fit,noscale,shrink',
+      'items.*.side' => 'sometimes|string|in:duplex,duplexshort,duplexlong,simplex',
+      'items.*.pages' => ['sometimes', 'string', 'max:255', $pageRangeRule],
     ]);
 
     try {
@@ -84,13 +92,16 @@ class PrintJobController extends Controller
           $numBnWPages = 0;
           $numColorPages = 0;
           $dbColorMode = $colorMode;
+          $monochromePages = null;
 
           switch (strtolower($colorMode)) {
             case 'color':
               $numColorPages = $pages;
+              $dbColorMode = 'color';
               break;
             case 'bnw':
               $numBnWPages = $pages;
+              $dbColorMode = 'bnw';
               break;
             case 'auto':
               $numBnWPages = $pages;
@@ -98,6 +109,7 @@ class PrintJobController extends Controller
               break;
             default:
               // Assumes a page range for B&W pages, rest are color
+              $monochromePages = $colorMode;
               $bnwPagesArray = $this->parsePageRanges($colorMode);
               $bnwPageCount = 0;
               foreach ($bnwPagesArray as $page) {
@@ -125,6 +137,12 @@ class PrintJobController extends Controller
             'print_color' => $dbColorMode,
             'price' => $itemPrice,
             'status' => 'pending',
+            'copies' => $item['copies'] ?? 1,
+            'paper_size' => $item['paper_size'] ?? null,
+            'scale' => $item['scale'] ?? null,
+            'side' => $item['side'] ?? null,
+            'pages_to_print' => $item['pages'] ?? null,
+            'monochrome_pages' => $monochromePages,
           ]);
 
           $detail->logs()->create([
