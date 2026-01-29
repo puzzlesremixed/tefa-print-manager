@@ -12,6 +12,8 @@ class PrintJob extends Model
 {
   use HasUuids;
 
+  protected $keyType = 'string';
+    public $incrementing = false;
   protected $fillable = [
     'customer_number',
     'customer_name',
