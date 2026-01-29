@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\PrintJob;
 use App\Models\PrintJobDetail;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
@@ -46,7 +47,7 @@ class PrintJobController extends Controller
       $pageRangeRule($attribute, $value, $fail);
     };
 
-    $validator = $request->validate([
+    $request->validate([
       'customer_name' => 'required|string|max:255',
       'customer_number' => 'required|string|max:255',
       'items' => 'required|array',
@@ -59,120 +60,115 @@ class PrintJobController extends Controller
       'items.*.pages' => ['sometimes', 'string', 'max:255', $pageRangeRule],
     ]);
 
-    try {
+    $printJob = DB::transaction(function () use ($request) {
 
-      $printJob = DB::transaction(function () use ($request) {
+      $job = PrintJob::create([
+        'customer_name' => $request->customer_name,
+        'customer_number' => $request->customer_number,
+        'total_price' => 0,
+        'status' => 'pending_payment',
+      ]);
 
-        $job = PrintJob::create([
-          'customer_name' => $request->customer_name,
-          'customer_number' => $request->customer_number,
-          'total_price' => 0,
-          'status' => 'pending_payment',
+      $runningTotal = 0;
+
+      foreach ($request->items as $item) {
+        $uploadedFile = $item['file'];
+        $colorMode = $item['color'];
+
+        // Force 'local' disk to ensure consistency with Asset model
+        $path = $uploadedFile->store('print_uploads', 'local');
+
+        $pages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->extension());
+
+        $asset = Asset::create([
+          'basename' => $uploadedFile->getClientOriginalName(),
+          'filename' => $uploadedFile->hashName(),
+          'path' => $path,
+          'extension' => $uploadedFile->extension(),
+          'pages' => $pages,
         ]);
 
-        $runningTotal = 0;
+        $numBnWPages = 0;
+        $numColorPages = 0;
+        $dbColorMode = $colorMode;
+        $monochromePages = null;
 
-        foreach ($request->items as $item) {
-          $uploadedFile = $item['file'];
-          $colorMode = $item['color'];
+        switch (strtolower($colorMode)) {
+          case 'color':
+            $numColorPages = $pages;
+            $dbColorMode = 'color';
+            break;
+          case 'bnw':
+            $numBnWPages = $pages;
+            $dbColorMode = 'bnw';
+            break;
+          case 'auto':
+            $numBnWPages = $pages;
+            $dbColorMode = 'bnw';
+            break;
+          default:
+            // Assumes a page range for B&W pages, rest are color
+            $monochromePages = $colorMode;
+            $bnwPagesArray = $this->parsePageRanges($colorMode);
+            $bnwPageCount = 0;
+            foreach ($bnwPagesArray as $page) {
+              if ($page <= $pages) {
+                $bnwPageCount++;
+              }
+            }
+            $numBnWPages = $bnwPageCount;
+            $numColorPages = $pages - $numBnWPages;
 
-          // Force 'local' disk to ensure consistency with Asset model
-          $path = $uploadedFile->store('print_uploads', 'local');
-
-          $pages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->extension());
-
-          $asset = Asset::create([
-            'basename' => $uploadedFile->getClientOriginalName(),
-            'filename' => $uploadedFile->hashName(),
-            'path' => $path,
-            'extension' => $uploadedFile->extension(),
-            'pages' => $pages,
-          ]);
-
-          $numBnWPages = 0;
-          $numColorPages = 0;
-          $dbColorMode = $colorMode;
-          $monochromePages = null;
-
-          switch (strtolower($colorMode)) {
-            case 'color':
-              $numColorPages = $pages;
+            if ($numColorPages > 0) {
               $dbColorMode = 'color';
-              break;
-            case 'bnw':
-              $numBnWPages = $pages;
+            } else {
               $dbColorMode = 'bnw';
-              break;
-            case 'auto':
-              $numBnWPages = $pages;
-              $dbColorMode = 'bnw';
-              break;
-            default:
-              // Assumes a page range for B&W pages, rest are color
-              $monochromePages = $colorMode;
-              $bnwPagesArray = $this->parsePageRanges($colorMode);
-              $bnwPageCount = 0;
-              foreach ($bnwPagesArray as $page) {
-                if ($page <= $pages) {
-                  $bnwPageCount++;
-                }
-              }
-              $numBnWPages = $bnwPageCount;
-              $numColorPages = $pages - $numBnWPages;
-
-              if ($numColorPages > 0) {
-                $dbColorMode = 'color';
-              } else {
-                $dbColorMode = 'bnw';
-              }
-              break;
-          }
-
-          $itemPrice = ($numBnWPages * self::PRICE_BNW) + ($numColorPages * self::PRICE_COLOR);
-          $runningTotal += $itemPrice;
-
-          $detail = PrintJobDetail::create([
-            'parent_id' => $job->id,
-            'asset_id' => $asset->id,
-            'print_color' => $dbColorMode,
-            'price' => $itemPrice,
-            'status' => 'pending',
-            'copies' => $item['copies'] ?? 1,
-            'paper_size' => $item['paper_size'] ?? null,
-            'scale' => $item['scale'] ?? null,
-            'side' => $item['side'] ?? null,
-            'pages_to_print' => $item['pages'] ?? null,
-            'monochrome_pages' => $monochromePages,
-          ]);
-
-          $detail->logs()->create([
-            'status' => 'pending',
-            'message' => 'File uploaded, waiting for payment'
-          ]);
+            }
+            break;
         }
 
-        $job->update(['total_price' => $runningTotal]);
+        $itemPrice = ($numBnWPages * self::PRICE_BNW) + ($numColorPages * self::PRICE_COLOR);
+        $runningTotal += $itemPrice;
 
-        return $job;
-      });
+        $detail = PrintJobDetail::create([
+          'parent_id' => $job->id,
+          'asset_id' => $asset->id,
+          'print_color' => $dbColorMode,
+          'price' => $itemPrice,
+          'status' => 'pending',
+          'copies' => $item['copies'] ?? 1,
+          'paper_size' => $item['paper_size'] ?? null,
+          'scale' => $item['scale'] ?? null,
+          'side' => $item['side'] ?? null,
+          'pages_to_print' => $item['pages'] ?? null,
+          'monochrome_pages' => $monochromePages,
+        ]);
 
-      return response()->json([
-        'message' => 'Order created successfully',
-        'order_id' => $printJob->id,
-        'total_price' => $printJob->total_price,
-      ], 201);
-    } catch (\Exception $e) {
-      return response()->json(['error' => $e->getMessage()], 500);
-    }
+        $detail->logs()->create([
+          'status' => 'pending',
+          'message' => 'File uploaded, waiting for payment'
+        ]);
+      }
+
+      $job->update(['total_price' => $runningTotal]);
+
+      return $job;
+    });
+
+    return response()->json([
+      'message' => 'Order created successfully',
+      'order_id' => $printJob->id,
+      'total_price' => $printJob->total_price,
+    ], 201);
   }
 
   public function show(PrintJob $printJob)
   {
     // if (request()->wantsJson() && !request()->header('X-Inertia')) {
-      return response()->json([
-        'success' => true,
-        'data' => $printJob->load(['details.asset', 'details.logs']),
-      ]);
+    return response()->json([
+      'success' => true,
+      'data' => $printJob->load(['details.asset', 'details.logs']),
+    ]);
     // }
     // return Inertia::render('print-job/print-detail', [
     //   'detail' => $query
@@ -183,7 +179,7 @@ class PrintJobController extends Controller
   {
     if ($printJob->status !== 'pending_payment') {
 
-      if (request()->wantsJson() && !request()->header('X-Inertia')) {
+      if (request()->wantsJson() && !request()->header('X-Inertia') && request()->is('api/*')) {
         return response()->json([
           'error' => 'Invalid Request',
           'message' => 'This order is not awaiting payment. Current status: ' . $printJob->status
@@ -207,7 +203,7 @@ class PrintJobController extends Controller
         }
       });
 
-      if (request()->wantsJson() && !request()->header('X-Inertia')) {
+      if (request()->wantsJson() && !request()->header('X-Inertia') && request()->is('api/*')) {
         return response()->json([
           'message' => 'Payment successful',
           'status' => $printJob->fresh()->status
@@ -216,25 +212,25 @@ class PrintJobController extends Controller
 
       return back()->with('message', 'Order marked as paid.');
     } catch (\Exception $e) {
-      if (request()->wantsJson() && !request()->header('X-Inertia')) {
+      if (request()->is('api/*')) {
         return response()->json(['error' => 'Payment processing failed', 'details' => $e->getMessage()], 500);
       }
       return back()->withErrors(['status' => $e->getMessage()]);
     }
   }
 
-  public function cancelPrintJob(PrintJob $printJob)
+  public function cancelPrintJob(PrintJob $printJob, Request $req)
   {
-    if ($printJob->status == 'running' || $printJob->status ==  'failed' || $printJob->status == 'completed' || $printJob->status ==  'partially_failed') {
+    if ( $printJob->status ==  'failed' || $printJob->status == 'completed' || $printJob->status ==  'partially_failed') {
 
-      if (request()->wantsJson() && !request()->header('X-Inertia')) {
+      if ($req->inertia()) {
+        return back()->with('message', 'You cannot candel this print job.');
+        }
         return response()->json([
           'error' => 'Invalid Request',
           'message' => 'You cannot candel this print job. Current status: ' . $printJob->status
         ], 400);
-      }
 
-      return back()->with('message', 'You cannot candel this print job.');
     }
 
     try {
@@ -267,38 +263,44 @@ class PrintJobController extends Controller
     }
   }
 
-  public function dispatchJob(PrintJob $printJob,  \App\Services\PrinterService $printerService)
+  public function dispatchJob(PrintJob $printJob,  \App\Services\PrinterService $printerService, Request $req)
   {
     try {
       // If pending, dispatch it. If queued, it's fine. Otherwise error.
       if ($printJob->status === 'pending') {
         $printJob->dispatchToQueue();
       } elseif ($printJob->status !== 'queued') {
-        throw new \Exception("Job cannot be queued. Current status: {$printJob->status}. Required: pending or queued.");
+        $msg = "Job cannot be queued. Current status: {$printJob->status}. Required: pending or queued.";
+        if ($req->inertia()) {
+          return back()->withErrors(['status' => $msg]);
+        }
+        return response()->json([
+          'error' => 'Dispatch failed',
+          'message' => $msg
+        ], 500);
       }
 
       $printerService->processNextItem();
 
-      if (request()->wantsJson() && !request()->header('X-Inertia')) {
-        return response()->json([
-          'message' => 'Job successfully queued',
-          'status' => 'queued'
-        ]);
+      if ($req->inertia()) {
+        return back()->with('message', 'Print job started successfully!');
       }
 
-      return back()->with('message', 'Print job started successfully!');
+      return response()->json([
+        'message' => 'Job successfully queued',
+        'status' => 'queued'
+      ]);
     } catch (\Exception $e) {
 
       $statusCode = 400;
 
-      if (request()->wantsJson() && !request()->header('X-Inertia')) {
-        return response()->json([
-          'error' => 'Dispatch failed',
-          'message' => $e->getMessage()
-        ], $statusCode);
+      if ($req->inertia()) {
+        return back()->withErrors(['status' => $e->getMessage()]);
       }
-
-      return back()->withErrors(['status' => $e->getMessage()]);
+      return response()->json([
+        'error' => 'Dispatch failed',
+        'message' => $e->getMessage()
+      ], $statusCode);
     }
   }
 
@@ -342,4 +344,25 @@ class PrintJobController extends Controller
 
     return array_unique($pages);
   }
+  
+  public function refreshQueue(PrintJob $printJob,  \App\Services\PrinterService $printerService, Request $req){
+    try{
+      $printerService->processNextItem();
+      if ($req->inertia()) {
+        return back();
+      }
+
+      return response()->json([
+        'message' => "Refreshed."
+      ]);
+    }catch(Exception $e){
+      if ($req->inertia()) {
+        return back()->withErrors(['status' => $e->getMessage()]);
+      }
+      return response()->json([
+        'error' => 'Dispatch failed',
+        'message' => $e->getMessage()
+      ], 500);
+    }
+}
 }

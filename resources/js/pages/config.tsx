@@ -13,8 +13,10 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { config } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
-import { ChevronRight } from 'lucide-react';
+import { Printer } from '@/types/data';
+import { Head, Link, router } from '@inertiajs/react';
+import { ChevronRight, RefreshCcw } from 'lucide-react';
+import { connect } from 'net';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -23,19 +25,38 @@ const breadcrumbs: BreadcrumbItem[] = [
   },
 ];
 
-export default function Config() {
+interface ConfigProps {
+  primaryPrinter : Printer
+}
+
+function sync(){
+  router.post(
+      `/api/printers/sync`,
+      {},
+      {
+        preserveState: true,
+        preserveScroll: true,
+      },
+    );
+}
+export default function Config({primaryPrinter}: ConfigProps) {
+  console.log(primaryPrinter);
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Configuration" />
       <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
         <section className="flex gap-8">
-          <div className="w-full lg:w-[40%] text-right">
-              <h2 className="mb-2 text-2xl">Printer settings</h2>
-              <Link href="/" className="hover:underline">
-                More printers <ChevronRight className="inline-block h-4 w-4" />
-              </Link>
+          <div className="w-full text-right lg:w-[40%]">
+            <h2 className="mb-2 text-2xl">Printer settings</h2>
+            <Link href="/" className="hover:underline">
+              More printers <ChevronRight className="inline-block h-4 w-4" />
+            </Link>
           </div>
           <div className="w-full">
+            <Button className="" variant={'secondary'} onClick={() => sync()} >
+              <RefreshCcw />
+              Sync Printer
+            </Button>
             <Card>
               <CardContent>
                 <p className="italic">// printer info</p>

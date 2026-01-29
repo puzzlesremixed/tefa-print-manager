@@ -60,7 +60,7 @@ class PrintJobDetail extends Model
   public function scopeReadyToPrint(Builder $query): void
   {
     $query->where('status', 'queued')
-      ->orWhere('status', 'failed')
+      // ->orWhere('status', 'failed')
       ->whereNull('locked_at') // Ensure no other worker is holding it
       ->orderBy('priority', 'desc')
       ->orderBy('created_at', 'asc');

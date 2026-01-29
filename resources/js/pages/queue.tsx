@@ -1,22 +1,34 @@
 import { DataTable } from '@/components/data-table';
+import PrinterCount from '@/components/PrinterPageCount';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { basePrintJobColumns } from '@/types/column';
-import { PrintJob } from '@/types/data';
+import { Printer, PrintJob } from '@/types/data';
 import { Head, router, usePage, usePoll } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { HandCoins, Plus, Square, Triangle } from 'lucide-react';
+import { HandCoins, Plus } from 'lucide-react';
 
 interface QueueProps {
   queuedFiles: PrintJob[];
   pendingFiles: PrintJob[];
   waitingPaymentFiles: PrintJob[];
+   printer : Printer;
 }
 
 const queueColumns: ColumnDef<PrintJob>[] = [
   ...basePrintJobColumns,
+  {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        return (
+          <StatusBadge status={row.original.status }/>
+        );
+      },
+    },
   {
     accessorKey: 'actions',
     header: 'Actions',
@@ -101,10 +113,10 @@ function cancelPrintJob(printJobId: number): void {
 export default function Queue({
   queuedFiles,
   pendingFiles,
-  waitingPaymentFiles,
+  waitingPaymentFiles, printer
 }: QueueProps) {
   const { flash } = usePage();
-  usePoll(2000)
+  usePoll(2000);
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Queue" />
@@ -113,24 +125,10 @@ export default function Queue({
           <>
             {flash.toast && <div className="toast">{flash.toast.message}</div>}
           </>
-
-          <h1 className="text-xl">Curently Running Print Job</h1>
-          <div>
-            <Button className="mr-2 bg-green-700 text-white">
-              <Triangle className="rotate-90" />
-              Run
-            </Button>
-            <Button className="" variant={'secondary'}>
-              <Square className="" />
-              Stop
-            </Button>
-          </div>
         </div>
-        <Card>
-          <CardContent>
-            <p className="italic">There's no currently running print job.</p>
-          </CardContent>
-        </Card>
+
+        <PrinterCount printer={printer} />
+
         <Tabs defaultValue="queued" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="queued">

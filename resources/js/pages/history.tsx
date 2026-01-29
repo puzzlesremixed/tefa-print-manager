@@ -1,4 +1,5 @@
 import { DataTable } from '@/components/data-table';
+import { StatusBadge } from '@/components/StatusBadge';
 import AppLayout from '@/layouts/app-layout';
 import { history } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
@@ -16,6 +17,15 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const columns: ColumnDef<PrintJob>[] = [
   ...basePrintJobColumns,
+  {
+    accessorKey: 'status',
+      header: 'Status',
+    cell: ({ row }) => {
+      return (
+        <StatusBadge status={row.original.status }/>
+      );
+    },
+  },
   {
     accessorKey: 'actions',
     header: 'Actions',

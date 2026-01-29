@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PrinterInfo;
 use App\Models\PrintJob;
 use Inertia\Inertia;
 
@@ -12,7 +13,7 @@ class QueueController extends Controller
     $query = PrintJob::with(['details.asset']);
 
     $queuedFiles = (clone $query)
-      ->whereIn('status', ['queued', 'running']) 
+      ->whereIn('status', ['queued']) 
       ->orderBy('created_at', 'asc')
       ->get();
 
@@ -26,10 +27,13 @@ class QueueController extends Controller
       ->orderBy('created_at', 'desc')
       ->get();
 
+  $primaryPrinter = PrinterInfo::getPrimary();
+
     return Inertia::render('queue', [
       'queuedFiles' => $queuedFiles,
       'pendingFiles' => $pendingFiles,
-      'waitingPaymentFiles' => $waitingPaymentFiles
+      'waitingPaymentFiles' => $waitingPaymentFiles,
+      'primaryPrinter' => $primaryPrinter 
     ]);
   }
 }

@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Configuration;
 use App\Http\Controllers\HistoryController;
+use App\Http\Controllers\PrinterInfoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -19,6 +21,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/queue', [QueueController::class, 'index'])->name('queue');
     Route::get('/history', [HistoryController::class, 'index'])->name('history');
+    Route::get('/config', [Configuration::class, 'index'])->name('config');
+
+    Route::get('/printers', [PrinterInfoController::class, 'index']);
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';

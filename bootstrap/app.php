@@ -6,8 +6,10 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -27,14 +29,18 @@ return Application::configure(basePath: dirname(__DIR__))
     ]);
   })
   ->withExceptions(function (Exceptions $exceptions): void {
-  
-    // Throw custom error when the uploaded file exceeded the server file limit
-    $exceptions->renderable(function (PostTooLargeException $e, Request $request) {
-      if ($request->is('api/*')) {
-        return response()->json([
-          'status' => 413,
-          'message' => 'The size of the data is too large.',
-        ], Response::HTTP_REQUEST_ENTITY_TOO_LARGE);
-      }
+    $exceptions->renderable(function (Exception $e, Request $request) {
+      if ($e instanceof ValidationException && $request->is('api/*')) {
+         return new JsonResponse([
+             'message' => 'The given data was invalid.',
+             'errors' => $e->errors(),
+         ], 422);
+     }
+      
+     if ($e instanceof PostTooLargeException && $request->is('api/*')) {
+         return new JsonResponse([
+             'message' => 'The size of the data is too large.',
+         ], 422);
+     }
     });
   })->create();

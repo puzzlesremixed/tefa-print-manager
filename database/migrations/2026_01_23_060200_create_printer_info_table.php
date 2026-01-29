@@ -14,14 +14,15 @@ return new class extends Migration
         Schema::create('printer_info', function (Blueprint $table) {
             $table->id();
             $table->string("name");
-            $table->integer("paper_remaining");
-            $table->enum("status", ["ready", "offline", "busy"]);
+            $table->integer("paper_remaining")->nullable();
+            $table->enum("status", ["ready", "offline", "busy", "unknown"]);
             $table->boolean('primary')->default(false);
             $table->timestamps();
         });
     }
 
     /**
+     * 
      * Reverse the migrations.
      */
     public function down(): void

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\PrintJobDetail;
@@ -13,20 +13,28 @@ class PrinterWebhookController extends Controller
 {
   public function handle(Request $request, PrinterService $printerService)
   {
-    $validated = $request->validate([
-      'job_id' => 'required|exists:print_job_details,id',
-      'status' => 'required|in:completed,failed,cancelled', // Status from the printer
-      'message' => 'nullable|string'
-    ]);
+    $detail = PrintJobDetail::find($printerService['job_detail_id']);
 
-    $detail = PrintJobDetail::find($validated['job_id']);
+    $validated = [
+      'job_detail_id' => $detail->id,
+      'webhook_url'   => route('printer.webhook'),
+      'copies'        => $detail->copies,
+    ];
 
-    // This marks the item as done, which means the "isBusy" check in the Service 
-    $detail->setStatus($validated['status'], $validated['message'] ?? 'Update from Print Server');
 
-    Log::info("Job {$detail->id} finished with status: {$validated['status']}");
+    if (!$detail) {
+      return response()->json(['message' => 'Job not found'], 404);
+    }
 
-    $printerService->processNextItem();
+    if (in_array($detail->status, ['printing', 'queued'])) {
+      $detail->setStatus($validated['status'], $validated['message'] ?? 'Update from Print Server');
+
+      $detail->job->updateAggregatedStatus();
+
+      Log::info("Job {$detail->id} webhook update: {$validated['status']}");
+
+      $printerService->processNextItem();
+    }
 
     return response()->json(['message' => 'Status updated, next job triggered']);
   }

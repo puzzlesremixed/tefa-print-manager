@@ -12,16 +12,17 @@ class PrinterService
      * Check if the printer is free and there are items waiting.
      * If so, send the next one.
      */
-    public function processNextItem(): void
+    public function processNextItem()
     {
         $isBusy = PrintJobDetail::where('status', 'printing')->exists();
 
         if ($isBusy) {
-            return;
+            return response()->json([
+        'message' => "Refreshed."
+      ]);
         }
 
         $nextItem = PrintJobDetail::readyToPrint()
-            ->lockForUpdate()
             ->first();
 
         if (!$nextItem) {
@@ -46,6 +47,8 @@ class PrinterService
 
             $payload = [
                 'copies' => $detail->copies,
+                // TODO : change from config
+                'printer' => "EPSON_L300_Series",
             ];
 
             if ($detail->monochrome_pages) {
