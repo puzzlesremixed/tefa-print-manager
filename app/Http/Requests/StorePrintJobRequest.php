@@ -19,7 +19,7 @@ class StorePrintJobRequest extends FormRequest
 
             'items' => ['required', 'array', 'min:1'],
 
-            'items.*.file' => ['required', 'file', 'mimes:pdf,jpg,png,doc,docx', 'max:10240'], // 10MB max
+            'items.*.file' => ['required', 'file', 'max:10240'], // 10MB max
             'items.*.color' => ['required', 'in:color,bnw'],
         ];
     }

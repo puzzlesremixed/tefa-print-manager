@@ -48,6 +48,8 @@ class PrinterService
             $webhookUrl = route('api.printer.webhook');
             $filePath = $detail->asset->full_path;
 
+            Log::info('Filepath' . $filePath);
+
             if (!file_exists($filePath)) {
                 throw new \Exception("File not found at path: {$filePath}");
             }
@@ -56,8 +58,6 @@ class PrinterService
                 'job_detail_id' => $detail->id,
                 'webhook_url' => $webhookUrl,
                 'copies' => $detail->copies,
-                // TODO : change from config
-                'printer' => "EPSON_L300_Series",
             ];
 
             if ($detail->monochrome_pages) {
@@ -79,8 +79,6 @@ class PrinterService
                 $payload['pages'] = $detail->pages_to_print;
             }
 
-
-
             $response = Http::asMultipart()
                 ->attach(
                     'files',
@@ -90,8 +88,6 @@ class PrinterService
                 ->post($printerApiUrl, $payload);
 
             if ($response->successful()) {
-
-
                 Log::info("Job {$detail->id} sent to spooler.");
             } else {
                 $errorMessage = 'Print Server rejected request: ' . $response->status();

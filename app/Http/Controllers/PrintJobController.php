@@ -9,13 +9,14 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class PrintJobController extends Controller
 {
-  const PRICE_BNW = 1000;
-  const PRICE_COLOR = 2000;
+  const PRICE_BNW = 500;
+  const PRICE_COLOR = 1000;
 
   public function store(Request $request)
   {
@@ -75,10 +76,11 @@ class PrintJobController extends Controller
           $colorMode = $item['color'];
           $copies = $item['copies'] ?? 1;
 
-        // Force 'local' disk to ensure consistency with Asset model
         $path = $uploadedFile->store('print_uploads', 'local');
 
         $pages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->extension());
+
+        Log::critical('Ext:' . $uploadedFile->extension());
 
         $asset = Asset::create([
           'basename' => $uploadedFile->getClientOriginalName(),
@@ -107,7 +109,6 @@ class PrintJobController extends Controller
             $dbColorMode = 'bnw';
             break;
           default:
-            // Assumes a page range for B&W pages, rest are color
             $monochromePages = $colorMode;
             $bnwPagesArray = $this->parsePageRanges($colorMode);
             $bnwPageCount = 0;
@@ -127,7 +128,6 @@ class PrintJobController extends Controller
             break;
         }
 
-          // Calculate price for one copy
         $unitPrice = ($numBnWPages * self::PRICE_BNW) + ($numColorPages * self::PRICE_COLOR);
           
           // Calculate total item price based on copies
