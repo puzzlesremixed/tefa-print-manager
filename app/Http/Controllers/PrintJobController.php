@@ -23,8 +23,7 @@ class PrintJobController extends Controller
     $pageRangeRule = function ($attribute, $value, $fail) {
       $parts = explode(',', $value);
       foreach ($parts as $part) {
-        $part = trim($part);
-        // Regex to validate a number or a number-range
+        $part = trim($part);        
         if (!preg_match('/^[1-9]\d*(-[1-9]\d*)?$/', $part)) {
           $fail($attribute . ' contains an invalid page or page range format. Use formats like "1", "1-10", or "1,5,10-12".');
           return;
@@ -42,8 +41,7 @@ class PrintJobController extends Controller
     $colorRule = function ($attribute, $value, $fail) use ($pageRangeRule) {
       if (in_array(strtolower($value), ['color', 'bnw', 'auto'])) {
         return;
-      }
-      // If not a keyword, it must be a page range for monochrome pages
+      }      
       $pageRangeRule($attribute, $value, $fail);
     };
 
@@ -71,15 +69,16 @@ class PrintJobController extends Controller
 
       $runningTotal = 0;
 
-        foreach ($request->items as $item) {
-          $uploadedFile = $item['file'];
-          $colorMode = $item['color'];
-          $copies = $item['copies'] ?? 1;
+      foreach ($request->items as $item) {
+        $uploadedFile = $item['file'];
+        $colorMode = $item['color'];
+        $copies = $item['copies'] ?? 1;
 
         $path = $uploadedFile->store('print_uploads', 'local');
+        
+        $totalFilePages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
 
-        $pages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->extension());
-
+        Log::emergency("Real Path:" . $uploadedFile->getRealPath());
         Log::critical('Ext:' . $uploadedFile->extension());
 
         $asset = Asset::create([
@@ -87,8 +86,22 @@ class PrintJobController extends Controller
           'filename' => $uploadedFile->hashName(),
           'path' => $path,
           'extension' => $uploadedFile->extension(),
-          'pages' => $pages,
+          'pages' => $totalFilePages,
         ]);
+        
+        $effectivePages = [];
+        $pagesToPrintString = $item['pages'] ?? null;
+
+        if ($pagesToPrintString) {
+            $requestedPages = $this->parsePageRanges($pagesToPrintString);            
+            $effectivePages = array_filter($requestedPages, function($p) use ($totalFilePages) {
+                return $p <= $totalFilePages;
+            });
+        } else {            
+            $effectivePages = range(1, $totalFilePages);
+        }
+                
+        $countToBill = count($effectivePages);
 
         $numBnWPages = 0;
         $numColorPages = 0;
@@ -97,28 +110,28 @@ class PrintJobController extends Controller
 
         switch (strtolower($colorMode)) {
           case 'color':
-            $numColorPages = $pages;
+            $numColorPages = $countToBill;
+            $numBnWPages = 0;
             $dbColorMode = 'color';
             break;
           case 'bnw':
-            $numBnWPages = $pages;
+            $numBnWPages = $countToBill;
+            $numColorPages = 0;
             $dbColorMode = 'bnw';
             break;
-          case 'auto':
-            $numBnWPages = $pages;
+          case 'auto':                        
+            $numBnWPages = $countToBill;
+            $numColorPages = 0;
             $dbColorMode = 'bnw';
             break;
-          default:
+          default:            
             $monochromePages = $colorMode;
-            $bnwPagesArray = $this->parsePageRanges($colorMode);
-            $bnwPageCount = 0;
-            foreach ($bnwPagesArray as $page) {
-              if ($page <= $pages) {
-                $bnwPageCount++;
-              }
-            }
-            $numBnWPages = $bnwPageCount;
-            $numColorPages = $pages - $numBnWPages;
+            $bnwRanges = $this->parsePageRanges($colorMode);
+                        
+            $actualBnwPages = array_intersect($effectivePages, $bnwRanges);
+            
+            $numBnWPages = count($actualBnwPages);
+            $numColorPages = $countToBill - $numBnWPages;
 
             if ($numColorPages > 0) {
               $dbColorMode = 'color';
@@ -129,25 +142,22 @@ class PrintJobController extends Controller
         }
 
         $unitPrice = ($numBnWPages * self::PRICE_BNW) + ($numColorPages * self::PRICE_COLOR);
-          
-          // Calculate total item price based on copies
-          $totalItemPrice = $unitPrice * $copies;
-          
+        $totalItemPrice = $unitPrice * $copies;
         $runningTotal += $totalItemPrice;
 
-          $detail = PrintJobDetail::create([
-            'parent_id' => $job->id,
-            'asset_id' => $asset->id,
-            'print_color' => $dbColorMode,
-            'price' => $totalItemPrice, // Store the total price for this line item (including copies)
-            'status' => 'pending',
-            'copies' => $copies,
-            'paper_size' => $item['paper_size'] ?? null,
-            'scale' => $item['scale'] ?? null,
-            'side' => $item['side'] ?? null,
-            'pages_to_print' => $item['pages'] ?? null,
-            'monochrome_pages' => $monochromePages,
-          ]);
+        $detail = PrintJobDetail::create([
+          'parent_id' => $job->id,
+          'asset_id' => $asset->id,
+          'print_color' => $dbColorMode,
+          'price' => $totalItemPrice,
+          'status' => 'pending',
+          'copies' => $copies,
+          'paper_size' => $item['paper_size'] ?? null,
+          'scale' => $item['scale'] ?? null,
+          'side' => $item['side'] ?? null,
+          'pages_to_print' => $item['pages'] ?? null,
+          'monochrome_pages' => $monochromePages,
+        ]);
 
         $detail->logs()->create([
           'status' => 'pending',
@@ -169,15 +179,10 @@ class PrintJobController extends Controller
 
   public function show(PrintJob $printJob)
   {
-    // if (request()->wantsJson() && !request()->header('X-Inertia')) {
     return response()->json([
       'success' => true,
       'data' => $printJob->load(['details.asset', 'details.logs']),
     ]);
-    // }
-    // return Inertia::render('print-job/print-detail', [
-    //   'detail' => $query
-    // ]);
   }
 
   public function simulatePayment(PrintJob $printJob)
@@ -226,15 +231,15 @@ class PrintJobController extends Controller
 
   public function cancelPrintJob(PrintJob $printJob, Request $req)
   {
-    if ( $printJob->status ==  'failed' || $printJob->status == 'completed' || $printJob->status ==  'partially_failed') {
+    if ($printJob->status == 'failed' || $printJob->status == 'completed' || $printJob->status == 'partially_failed') {
 
       if ($req->inertia()) {
         return back()->with('message', 'You cannot candel this print job.');
-        }
-        return response()->json([
-          'error' => 'Invalid Request',
-          'message' => 'You cannot candel this print job. Current status: ' . $printJob->status
-        ], 400);
+      }
+      return response()->json([
+        'error' => 'Invalid Request',
+        'message' => 'You cannot candel this print job. Current status: ' . $printJob->status
+      ], 400);
 
     }
 
@@ -268,10 +273,9 @@ class PrintJobController extends Controller
     }
   }
 
-  public function dispatchJob(PrintJob $printJob,  \App\Services\PrinterService $printerService, Request $req)
+  public function dispatchJob(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
   {
     try {
-      // If pending, dispatch it. If queued, it's fine. Otherwise error.
       if ($printJob->status === 'pending') {
         $printJob->dispatchToQueue();
       } elseif ($printJob->status !== 'queued') {
@@ -299,36 +303,36 @@ class PrintJobController extends Controller
 
       $statusCode = 400;
 
-     if ($req->inertia()) {
+      if ($req->inertia()) {
         return back()->withErrors(['status' => $e->getMessage()]);
       }
       return response()->json([
         'error' => 'Dispatch failed',
         'message' => $e->getMessage()
       ], $statusCode);
-  }}
-
-  // Helper functions
+    }
+  }
+  
   private function countPages($filePath, $originalName): int
   {
-      try {
-          $printerServerUrl = 'http://localhost:8080/count-pages';
-          
-          $response = Http::timeout(5)->attach(
-              'file', 
-              file_get_contents($filePath), 
-              $originalName
-          )->post($printerServerUrl);
+    try {
+      $printerServerUrl = 'http://localhost:8080/count-pages';
+      
+      $response = Http::timeout(5)->attach(
+        'file',
+        file_get_contents($filePath),
+        $originalName
+      )->post($printerServerUrl);
 
-          if ($response->successful()) {
-              return (int) $response->json('pages');
-          }
-          
-          return 1;
-      } catch (\Exception $e) {
-          // If server is unreachable or fails, fallback to 1 to allow manual editing later if needed
-          return 1;
+      if ($response->successful()) {
+        return (int) $response->json('pages');
       }
+
+      return 1;
+    } catch (\Exception $e) {
+      Log::error("Count Pages failed: " . $e->getMessage());
+      return 1;
+    }
   }
 
   private function parsePageRanges(string $rangeString): array
@@ -355,9 +359,10 @@ class PrintJobController extends Controller
 
     return array_unique($pages);
   }
-  
-  public function refreshQueue(PrintJob $printJob,  \App\Services\PrinterService $printerService, Request $req){
-    try{
+
+  public function refreshQueue(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
+  {
+    try {
       $printerService->processNextItem();
       if ($req->inertia()) {
         return back();
@@ -366,7 +371,7 @@ class PrintJobController extends Controller
       return response()->json([
         'message' => "Refreshed."
       ]);
-    }catch(Exception $e){
+    } catch (Exception $e) {
       if ($req->inertia()) {
         return back()->withErrors(['status' => $e->getMessage()]);
       }
@@ -375,5 +380,5 @@ class PrintJobController extends Controller
         'message' => $e->getMessage()
       ], 500);
     }
-}
+  }
 }
