@@ -20,14 +20,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     return Inertia::render('config');
   })->name('config');
 
-  // Route::get(
-  //   'print-job/{id}',
-  //   [PrintJobController::class, 'show']
-  // )->name('printJob.detail');
+   Route::get(
+     'print-job/{id}',
+     [PrintJobController::class, 'show']
+   )->name('printJob.detail');
 
   Route::get('/queue', [QueueController::class, 'index'])->name('queue');
   Route::get('/history', [HistoryController::class, 'index'])->name('history');
-  // Route::get('/history', [HistoryController::class, 'index'])->name('history');
 });
 
 require __DIR__ . '/settings.php';

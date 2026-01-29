@@ -18,6 +18,7 @@ class PrintJobController extends Controller
     const PRICE_BNW = 1000;
     const PRICE_COLOR = 2000;
 
+    // Create a new print job
     public function store(Request $request)
     {
         $pageRangeRule = function ($attribute, $value, $fail) {
@@ -168,16 +169,24 @@ class PrintJobController extends Controller
         ], 201);
     }
 
-    public function showApi(PrintJob $printJob)
+    // Show print job details
+    public function show(PrintJob $printJob, Request $request)
     {
         $printJob->load('details');
+
+        if ($request->inertia()) {
+            return Inertia::render('print-job/print-detail',
+                ['detail' => $printJob]
+            );
+        }
+
         return response()->json([
             'detail' => $printJob
-        ], 200);
+        ]);
     }
 
-
-    public function simulatePayment(PrintJob $printJob)
+    // Mark print job as paid
+    public function simulatePayment(PrintJob $printJob, Request $req)
     {
         if ($printJob->status !== 'pending_payment') {
 
@@ -194,7 +203,8 @@ class PrintJobController extends Controller
         try {
             DB::transaction(function () use ($printJob) {
                 $printJob->update([
-                    'status' => 'pending'
+                    'status' => 'pending',
+                    'paid_at' => now()
                 ]);
 
                 foreach ($printJob->details as $detail) {
@@ -205,14 +215,14 @@ class PrintJobController extends Controller
                 }
             });
 
-            if (request()->wantsJson() && !request()->header('X-Inertia') && request()->is('api/*')) {
-                return response()->json([
-                    'message' => 'Payment successful',
-                    'status' => $printJob->fresh()->status
-                ]);
+            if ($req->inertia()) {
+                return back()->with('message', 'Order marked as paid.');
             }
 
-            return back()->with('message', 'Order marked as paid.');
+            return response()->json([
+                'message' => 'Payment successful',
+                'status' => $printJob->fresh()->status
+            ]);
         } catch (\Exception $e) {
             if (request()->is('api/*')) {
                 return response()->json(['error' => 'Payment processing failed', 'details' => $e->getMessage()], 500);
@@ -221,16 +231,17 @@ class PrintJobController extends Controller
         }
     }
 
+    // Cancel print job
     public function cancelPrintJob(PrintJob $printJob, Request $req)
     {
         if ($printJob->status == 'failed' || $printJob->status == 'completed' || $printJob->status == 'partially_failed') {
 
             if ($req->inertia()) {
-                return back()->with('message', 'You cannot candel this print job.');
+                return back()->with('message', 'You cannot cancel this print job.');
             }
             return response()->json([
                 'error' => 'Invalid Request',
-                'message' => 'You cannot candel this print job. Current status: ' . $printJob->status
+                'message' => 'You cannot cancel this print job. Current status: ' . $printJob->status
             ], 400);
         }
 
@@ -264,6 +275,7 @@ class PrintJobController extends Controller
         }
     }
 
+    // Sent a pending print job to the queue to get printed
     public function dispatchJob(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
     {
         try {
@@ -305,7 +317,9 @@ class PrintJobController extends Controller
         }
     }
 
-    // Helper functions
+//    ----------------
+//    Helper functions
+//    ----------------
     private function countPages($filePath, $originalName): int
     {
         try {

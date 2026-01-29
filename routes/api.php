@@ -10,17 +10,17 @@ use Illuminate\Support\Facades\Route;
 Route::post('/print-job/create', [PrintJobController::class, 'store'])->name('apiPrintJobs.store');
 
 // Get a Specific Print Job
-Route::get('/print-job/{printJob}/show', [PrintJobController::class, 'show'])->name('apiPrintJobs.show');
+Route::get('/print-job/{printJob}', [PrintJobController::class, 'show'])->name('apiPrintJobs.show');
 
 // Mark Order as Paid
 Route::post('/print-job/{printJob}/pay', [PrintJobController::class, 'simulatePayment'])->name('apiPrintjobs.simulatePayment');
 Route::post('/print-job/{printJob}/cancel', [PrintJobController::class, 'cancelPrintJob'])->name('apiPrintjobs.cancelPrintJob');
 
 // Dispatch Queued Print Job (Typically called by the WhatsApp Bot API)
-Route::post('/print-job/{printJob}/dispatch', [PrintJobController::class, 'apiDispatchJob'])
+Route::post('/print-job/{printJob}/dispatch', [PrintJobController::class, 'dispatchJob'])
     ->name('printjobs.dispatch');
 
-Route::post('/print-job/refresh', [PrintJobController::class, 'apiRefreshQueue'])
+Route::post('/print-job/refresh', [PrintJobController::class, 'refreshQueue'])
     ->name('printjobs.refresh');
 
 // Get printer list
