@@ -9,7 +9,7 @@ import { basePrintJobColumns } from '@/types/column';
 import { Printer, PrintJob } from '@/types/data';
 import { Head, router, usePage, usePoll } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { HandCoins, Plus } from 'lucide-react';
+import { HandCoins, Play, Plus } from 'lucide-react';
 
 interface QueueProps {
   queuedFiles: PrintJob[];
@@ -30,8 +30,31 @@ const queueColumns: ColumnDef<PrintJob>[] = [
       },
     },
   {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        return (
+          <StatusBadge status={row.original.status }/>
+        );
+      },
+    },
+  {
     accessorKey: 'actions',
     header: 'Actions',
+
+    cell: ({ row }) => {
+      return (
+        <div className="flex gap-2">
+          <Button
+            className=""
+            variant={'secondary'}
+            onClick={() => cancelPrintJob(row.original.id)}
+          >
+            <Plus className="rotate-45" />
+          </Button>
+        </div>
+      );
+    },
   },
 ];
 
@@ -44,6 +67,13 @@ const pendingColumns: ColumnDef<PrintJob>[] = [
     cell: ({ row }) => {
       return (
         <div className="flex gap-2">
+          <Button
+            className=""
+            variant={'secondary'}
+            onClick={() => cancelPrintJob(row.original.id)}
+          >
+            <Play />
+          </Button>
           <Button
             className=""
             variant={'secondary'}
@@ -110,6 +140,7 @@ function cancelPrintJob(printJobId: number): void {
   );
 }
 
+
 export default function Queue({
   queuedFiles,
   pendingFiles,
@@ -125,6 +156,8 @@ export default function Queue({
           <>
             {flash.toast && <div className="toast">{flash.toast.message}</div>}
           </>
+
+         
         </div>
 
         <PrinterCount printer={printer} />

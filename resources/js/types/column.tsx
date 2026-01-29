@@ -54,6 +54,10 @@ export const basePrintJobColumns: ColumnDef<PrintJob>[] = [
     },
   },
   {
+    accessorKey: 'status',
+    header: "Status"
+  },
+  {
     accessorKey: 'created_at',
     header: 'Time',
     cell: ({ row }) =>

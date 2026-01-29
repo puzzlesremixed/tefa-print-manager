@@ -11,31 +11,46 @@ use Illuminate\Support\Facades\Log;
 // TODO : Work in progress
 class PrinterWebhookController extends Controller
 {
-  public function handle(Request $request, PrinterService $printerService)
+   public function handle(Request $request, PrinterService $printerService)
   {
-    $detail = PrintJobDetail::find($printerService['job_detail_id']);
+    $validated = $request->validate([
+      'job_detail_id' => 'required|exists:print_job_details,id',
+      'status' => 'required|in:running,completed,failed,cancelled',
+      'message' => 'nullable|string',
+      'pages_printed' => 'nullable|integer'
+    ]);
 
-    $validated = [
-      'job_detail_id' => $detail->id,
-      'webhook_url'   => route('printer.webhook'),
-      'copies'        => $detail->copies,
-    ];
-
-
+    $detail = PrintJobDetail::find($validated['job_detail_id']);
+    Log::error('webhook id job not found' . $detail);
     if (!$detail) {
       return response()->json(['message' => 'Job not found'], 404);
     }
 
-    if (in_array($detail->status, ['printing', 'queued'])) {
-      $detail->setStatus($validated['status'], $validated['message'] ?? 'Update from Print Server');
+    $currentStatus = $detail->status;
+    $newStatus = $validated['status'];
+    $message = $validated['message'] ?? 'Update from Print Server';
+
+    if ($newStatus === 'running') {
+      $newStatus = 'printing';
+    }
+
+    if (!in_array($currentStatus, ['completed', 'cancelled'])) {
+
+      $detail->setStatus($newStatus, $message);
+
+      if (isset($validated['pages_printed'])) {
+        Log::info("Job {$detail->id} printed {$validated['pages_printed']} pages.");
+      }
 
       $detail->job->updateAggregatedStatus();
 
-      Log::info("Job {$detail->id} webhook update: {$validated['status']}");
+      Log::info("Webhook: Job {$detail->id} updated to {$newStatus}");
 
-      $printerService->processNextItem();
+      if (in_array($newStatus, ['completed', 'failed', 'cancelled'])) {
+        $printerService->processNextItem();
+      }
     }
 
-    return response()->json(['message' => 'Status updated, next job triggered']);
+    return response()->json(['message' => 'Status updated']);
   }
 }

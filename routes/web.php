@@ -8,10 +8,8 @@ use Laravel\Fortify\Features;
 use App\Http\Controllers\QueueController;
 
 Route::get('/', function () {
-  return Inertia::render('welcome', [
-    'canRegister' => Features::enabled(Features::registration()),
-  ]);
-})->name('home');
+  return redirect()->route('dashboard');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
   Route::get('dashboard', function () {
