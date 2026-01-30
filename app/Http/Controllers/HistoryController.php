@@ -14,8 +14,8 @@ class HistoryController extends Controller
     $query = PrintJob::with(['details.asset']);
 
     $pastFiles = (clone $query)
-      ->whereIn('status', ['cancelled', 'completed', 'partially_failed', 'failed', ])
-      ->orderBy('created_at', 'asc')
+      ->whereIn('status', ['cancelled', 'completed', 'partially_failed', 'failed',])
+      ->orderBy('created_at', 'desc')
       ->get();
 
     return Inertia::render('history', [

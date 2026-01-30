@@ -1,14 +1,14 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PrintJob } from "./data";
 import { Link } from "@inertiajs/react";
-import { show } from "@/actions/App/Http/Controllers/PrintJobController";
+import {detail} from "@/routes/printJob";
 
 export const basePrintJobColumns: ColumnDef<PrintJob>[] = [
   {
     accessorKey: 'customer_name',
     header: 'Customer',
     cell: ({ row }) => (
-      <Link className="flex flex-col group" href={show(row.original.id)} prefetch>
+      <Link className="flex flex-col group" href={detail(row.original.id.toString())} prefetch>
         <span className="font-medium group-hover:underline">{row.original.customer_name}</span>
         <span className="text-xs text-muted-foreground">
           {row.original.customer_number}
@@ -52,10 +52,6 @@ export const basePrintJobColumns: ColumnDef<PrintJob>[] = [
         currency: 'IDR',
       }).format(row.original.total_price);
     },
-  },
-  {
-    accessorKey: 'status',
-    header: "Status"
   },
   {
     accessorKey: 'created_at',

@@ -1,57 +1,69 @@
-import { DataTable } from '@/components/data-table';
+import {DataTable} from '@/components/data-table';
 import PrinterCount from '@/components/PrinterPageCount';
-import { StatusBadge } from '@/components/StatusBadge';
-import { Button } from '@/components/ui/button';
+import {StatusBadge} from '@/components/StatusBadge';
+import {Button} from '@/components/ui/button';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import { basePrintJobColumns } from '@/types/column';
-import { Printer, PrintJob } from '@/types/data';
-import { Head, router, usePage, usePoll } from '@inertiajs/react';
-import type { ColumnDef } from '@tanstack/react-table';
-import { HandCoins, Play, Plus } from 'lucide-react';
+import {basePrintJobColumns} from '@/types/column';
+import {Printer, PrintJob} from '@/types/data';
+import {Head, router, usePage, usePoll} from '@inertiajs/react';
+import type {ColumnDef} from '@tanstack/react-table';
+import {HandCoins, ListStart, Plus} from 'lucide-react';
+import {cancelPrintJob, dispatchJob, simulatePayment} from "@/actions/App/Http/Controllers/PrintJobController";
 
 interface QueueProps {
   queuedFiles: PrintJob[];
   pendingFiles: PrintJob[];
+  runningFiles: PrintJob;
   waitingPaymentFiles: PrintJob[];
-   printer : Printer;
+  printer: Printer;
+}
+
+function CancelCell({id}: { id: number }) {
+  return (
+    <Button
+      className="cursor-pointer"
+      variant={'secondary'}
+      onClick={() => router.visit(cancelPrintJob(id.toString()))}
+    >
+      <Plus className="rotate-45"/>
+    </Button>
+  )
+}
+
+function SimulatePaymentCell({id}: { id: number }) {
+  return (
+    <Button
+      className="cursor-pointer"
+      variant={'secondary'}
+      onClick={() => router.visit(simulatePayment(id.toString()))}
+    >
+      <HandCoins className="rotate-45"/>
+    </Button>
+
+  )
 }
 
 const queueColumns: ColumnDef<PrintJob>[] = [
   ...basePrintJobColumns,
   {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => {
-        return (
-          <StatusBadge status={row.original.status }/>
-        );
-      },
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({row}) => {
+      return (
+        <StatusBadge status={row.original.status}/>
+      );
     },
-  {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => {
-        return (
-          <StatusBadge status={row.original.status }/>
-        );
-      },
-    },
+  },
   {
     accessorKey: 'actions',
     header: 'Actions',
 
-    cell: ({ row }) => {
+    cell: ({row}) => {
       return (
         <div className="flex gap-2">
-          <Button
-            className=""
-            variant={'secondary'}
-            onClick={() => cancelPrintJob(row.original.id)}
-          >
-            <Plus className="rotate-45" />
-          </Button>
+          <CancelCell id={row.original.id}/>
         </div>
       );
     },
@@ -64,23 +76,19 @@ const pendingColumns: ColumnDef<PrintJob>[] = [
     accessorKey: 'actions',
     header: 'Actions',
 
-    cell: ({ row }) => {
+    cell: ({row}) => {
       return (
         <div className="flex gap-2">
           <Button
-            className=""
+            className="cursor-pointer"
             variant={'secondary'}
-            onClick={() => cancelPrintJob(row.original.id)}
+            onClick={() => router.visit(dispatchJob(row.original.id.toString()))}
           >
-            <Play />
+
+            <ListStart/>
           </Button>
-          <Button
-            className=""
-            variant={'secondary'}
-            onClick={() => cancelPrintJob(row.original.id)}
-          >
-            <Plus className="rotate-45" />
-          </Button>
+
+          <CancelCell id={row.original.id}/>
         </div>
       );
     },
@@ -92,75 +100,34 @@ const unpaidColumns: ColumnDef<PrintJob>[] = [
   {
     accessorKey: 'actions',
     header: 'Actions',
-    cell: ({ row }) => {
+    cell: ({row}) => {
       return (
         <div className="flex gap-2">
-          <Button
-            className=""
-            variant={'secondary'}
-            onClick={() => simulatePayment(row.original.id)}
-          >
-            <HandCoins className="" />
-          </Button>
-
-          <Button
-            className=""
-            variant={'secondary'}
-            onClick={() => cancelPrintJob(row.original.id)}
-          >
-            <Plus className="rotate-45" />
-          </Button>
+          <SimulatePaymentCell id={row.original.id}/>
+          <CancelCell id={row.original.id}/>
         </div>
       );
     },
   },
 ];
 
-const breadcrumbs = [{ title: 'Queue', href: '/queue' }];
-
-function simulatePayment(printJobId: number): void {
-  router.post(
-    `/api/print-job/${printJobId}/pay`,
-    {},
-    {
-      preserveState: true,
-      preserveScroll: true,
-    },
-  );
-}
-
-function cancelPrintJob(printJobId: number): void {
-  router.post(
-    `/api/print-job/${printJobId}/cancel`,
-    {},
-    {
-      preserveState: true,
-      preserveScroll: true,
-    },
-  );
-}
+const breadcrumbs = [{title: 'Queue', href: '/queue'}];
 
 
 export default function Queue({
-  queuedFiles,
-  pendingFiles,
-  waitingPaymentFiles, printer
-}: QueueProps) {
-  const { flash } = usePage();
+                                queuedFiles,
+                                pendingFiles,
+                                runningFiles,
+                                waitingPaymentFiles, printer
+                              }: QueueProps) {
+  const {flash} = usePage();
   usePoll(2000);
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Queue" />
+      <Head title="Queue"/>
       <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-        <div className="flex items-end justify-between">
-          <>
-            {flash.toast && <div className="toast">{flash.toast.message}</div>}
-          </>
 
-         
-        </div>
-
-        <PrinterCount printer={printer} />
+        <PrinterCount printer={printer} runningFiles={runningFiles}/>
 
         <Tabs defaultValue="queued" className="w-full">
           <TabsList className="mb-4">
@@ -177,19 +144,19 @@ export default function Queue({
 
           <TabsContent value="queued">
             <div className="rounded-md border">
-              <DataTable columns={queueColumns} data={queuedFiles} />
+              <DataTable columns={queueColumns} data={queuedFiles}/>
             </div>
           </TabsContent>
 
           <TabsContent value="pending">
             <div className="rounded-md border">
-              <DataTable columns={pendingColumns} data={pendingFiles} />
+              <DataTable columns={pendingColumns} data={pendingFiles}/>
             </div>
           </TabsContent>
 
           <TabsContent value="payment">
             <div className="rounded-md border">
-              <DataTable columns={unpaidColumns} data={waitingPaymentFiles} />
+              <DataTable columns={unpaidColumns} data={waitingPaymentFiles}/>
             </div>
           </TabsContent>
         </Tabs>

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\GetConfigs;
 use App\Models\PrintJobDetail;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -9,44 +10,44 @@ use Illuminate\Support\Facades\URL;
 
 class PrinterService
 {
-    /**
-     * Check if the printer is free and there are items waiting.
-     * If so, send the next one.
-     */
-    public function processNextItem()
-    {
-        $isBusy = PrintJobDetail::where('status', 'printing')
-            ->orWhere('status', 'running')
-            ->exists();
+  /**
+   * Check if the printer is free and there are items waiting.
+   * If so, send the next one.
+   */
+  public function processNextItem()
+  {
+    $isBusy = PrintJobDetail::where('status', 'printing')
+      ->orWhere('status', 'running')
+      ->exists();
 
-        Log::alert('Process next item' . $isBusy);
+    Log::alert('Process next item' . $isBusy);
 
-        if ($isBusy) {
-            return response()->json([
+    if ($isBusy) {
+      return response()->json([
         'message' => "Refreshed."
       ]);
-        }
-
-        $nextItem = PrintJobDetail::readyToPrint()
-            ->first();
-
-        if (!$nextItem) {
-            return;
-        }
-
-        $this->sendToExternalPrinter($nextItem);
     }
 
-    private function sendToExternalPrinter(PrintJobDetail $detail): void
-    {
+    $nextItem = PrintJobDetail::readyToPrint()
+      ->first();
 
-        $detail->setStatus('printing', 'Sent to print server');
-        $detail->job->updateAggregatedStatus();
+    if (!$nextItem) {
+      return;
+    }
 
-        try {
-            $printerApiUrl = 'http://localhost:8080/print';
-            $webhookUrl = route('api.printer.webhook');
-            $filePath = $detail->asset->full_path;
+    $this->sendToExternalPrinter($nextItem);
+  }
+
+  private function sendToExternalPrinter(PrintJobDetail $detail): void
+  {
+
+    $detail->setStatus('printing', 'Sent to print server');
+    $detail->job->updateAggregatedStatus();
+
+    try {
+      $printerApiUrl = GetConfigs::printServEnpoint() . '/print';
+      $webhookUrl = route('api.printer.webhook');
+      $filePath = $detail->asset->full_path;
 
             Log::info('Filepath' . $filePath);
 
@@ -58,6 +59,7 @@ class PrinterService
                 'job_detail_id' => $detail->id,
                 'webhook_url' => $webhookUrl,
                 'copies' => $detail->copies,
+                // TODO : change from config
             ];
 
             if ($detail->monochrome_pages) {
@@ -95,16 +97,16 @@ class PrinterService
                     $errorMessage .= ' - ' . $response->json('message');
                 }
 
-                $detail->setStatus('failed', $errorMessage);
-                $detail->job->updateAggregatedStatus();
-                $this->processNextItem();
-            }
+        $detail->setStatus('failed', $errorMessage);
+        $detail->job->updateAggregatedStatus();
+        $this->processNextItem();
+      }
 
-        } catch (\Exception $e) {
-            $detail->setStatus('failed', 'Connection to Print Server failed: ' . $e->getMessage());
-            $detail->job->updateAggregatedStatus();
-            Log::error('Print Server Error: ' . $e->getMessage());
-            $this->processNextItem();
-        }
+    } catch (\Exception $e) {
+      $detail->setStatus('failed', 'Connection to Print Server failed: ' . $e->getMessage());
+      $detail->job->updateAggregatedStatus();
+      Log::error('Print Server Error: ' . $e->getMessage());
+      $this->processNextItem();
     }
+  }
 }

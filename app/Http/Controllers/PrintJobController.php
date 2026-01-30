@@ -12,180 +12,202 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
+
 
 class PrintJobController extends Controller
 {
-  const PRICE_BNW = 500;
-  const PRICE_COLOR = 1000;
 
+  // Create a new print job
   public function store(Request $request)
   {
-    $pageRangeRule = function ($attribute, $value, $fail) {
-      $parts = explode(',', $value);
-      foreach ($parts as $part) {
-        $part = trim($part);        
-        if (!preg_match('/^[1-9]\d*(-[1-9]\d*)?$/', $part)) {
-          $fail($attribute . ' contains an invalid page or page range format. Use formats like "1", "1-10", or "1,5,10-12".');
-          return;
-        }
-        if (str_contains($part, '-')) {
-          list($start, $end) = explode('-', $part);
-          if (intval($start) >= intval($end)) {
-            $fail($attribute . ' has an invalid range where start (' . $start . ') is greater than or equal to end (' . $end . '): ' . $part);
+    try {
+      $pageRangeRule = function ($attribute, $value, $fail) {
+        $parts = explode(',', $value);
+        foreach ($parts as $part) {
+          $part = trim($part);
+          // Regex to validate a number or a number-range
+          if (!preg_match('/^[1-9]\d*(-[1-9]\d*)?$/', $part)) {
+            $fail($attribute . ' contains an invalid page or page range format. Use formats like "1", "1-10", or "1,5,10-12".');
             return;
           }
+          if (str_contains($part, '-')) {
+            list($start, $end) = explode('-', $part);
+            if (intval($start) >= intval($end)) {
+              $fail($attribute . ' has an invalid range where start (' . $start . ') is greater than or equal to end (' . $end . '): ' . $part);
+              return;
+            }
+          }
         }
-      }
-    };
+      };
 
-    $colorRule = function ($attribute, $value, $fail) use ($pageRangeRule) {
-      if (in_array(strtolower($value), ['color', 'bnw', 'auto'])) {
-        return;
-      }      
-      $pageRangeRule($attribute, $value, $fail);
-    };
+      $colorRule = function ($attribute, $value, $fail) use ($pageRangeRule) {
+        if (in_array(strtolower($value), ['color', 'bnw', 'auto'])) {
+          return;
+        }
+        // If not a keyword, it must be a page range for monochrome pages
+        $pageRangeRule($attribute, $value, $fail);
+      };
 
-    $request->validate([
-      'customer_name' => 'required|string|max:255',
-      'customer_number' => 'required|string|max:255',
-      'items' => 'required|array',
-      'items.*.file' => 'required|file',
-      'items.*.color' => ['required', 'string', $colorRule],
-      'items.*.copies' => 'sometimes|integer|min:1',
-      'items.*.paper_size' => 'sometimes|string|max:255',
-      'items.*.scale' => 'sometimes|string|in:fit,noscale,shrink',
-      'items.*.side' => 'sometimes|string|in:duplex,duplexshort,duplexlong,simplex',
-      'items.*.pages' => ['sometimes', 'string', 'max:255', $pageRangeRule],
-    ]);
-
-    $printJob = DB::transaction(function () use ($request) {
-
-      $job = PrintJob::create([
-        'customer_name' => $request->customer_name,
-        'customer_number' => $request->customer_number,
-        'total_price' => 0,
-        'status' => 'pending_payment',
+      $request->validate([
+        'customer_name' => 'required|string|max:255',
+        'customer_number' => 'required|string|max:255',
+        'items' => 'required|array',
+        'items.*.file' => 'required|file',
+        'items.*.color' => ['required', 'string', $colorRule],
+        'items.*.copies' => 'sometimes|integer|min:1',
+        'items.*.paper_size' => 'sometimes|string|max:255',
+        'items.*.scale' => 'sometimes|string|in:fit,noscale,shrink',
+        'items.*.side' => 'sometimes|string|in:duplex,duplexshort,duplexlong,simplex',
+        'items.*.pages' => ['sometimes', 'string', 'max:255', $pageRangeRule],
       ]);
 
-      $runningTotal = 0;
+      $printJob = DB::transaction(function () use ($request) {
 
-      foreach ($request->items as $item) {
-        $uploadedFile = $item['file'];
-        $colorMode = $item['color'];
-        $copies = $item['copies'] ?? 1;
-
-        $path = $uploadedFile->store('print_uploads', 'local');
-        
-        $totalFilePages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
-
-        Log::emergency("Real Path:" . $uploadedFile->getRealPath());
-        Log::critical('Ext:' . $uploadedFile->extension());
-
-        $asset = Asset::create([
-          'basename' => $uploadedFile->getClientOriginalName(),
-          'filename' => $uploadedFile->hashName(),
-          'path' => $path,
-          'extension' => $uploadedFile->extension(),
-          'pages' => $totalFilePages,
+        $job = PrintJob::create([
+          'customer_name' => $request->customer_name,
+          'customer_number' => $request->customer_number,
+          'total_price' => 0,
+          'status' => 'pending_payment',
         ]);
-        
-        $effectivePages = [];
-        $pagesToPrintString = $item['pages'] ?? null;
 
-        if ($pagesToPrintString) {
-            $requestedPages = $this->parsePageRanges($pagesToPrintString);            
-            $effectivePages = array_filter($requestedPages, function($p) use ($totalFilePages) {
-                return $p <= $totalFilePages;
+        $runningTotal = 0;
+
+        foreach ($request->items as $item) {
+          $uploadedFile = $item['file'];
+          $colorMode = $item['color'];
+          $copies = $item['copies'] ?? 1;
+
+          $path = $uploadedFile->store('print_uploads', 'local');
+
+          $totalFilePages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
+
+          Log::emergency("Real Path:" . $uploadedFile->getRealPath());
+          Log::critical('Ext:' . $uploadedFile->extension());
+
+          $asset = Asset::create([
+            'basename' => $uploadedFile->getClientOriginalName(),
+            'filename' => $uploadedFile->hashName(),
+            'path' => $path,
+            'extension' => $uploadedFile->extension(),
+            'pages' => $totalFilePages,
+          ]);
+
+          $effectivePages = [];
+          $pagesToPrintString = $item['pages'] ?? null;
+
+          if ($pagesToPrintString) {
+            $requestedPages = $this->parsePageRanges($pagesToPrintString);
+            $effectivePages = array_filter($requestedPages, function ($p) use ($totalFilePages) {
+              return $p <= $totalFilePages;
             });
-        } else {            
+          } else {
             $effectivePages = range(1, $totalFilePages);
-        }
-                
-        $countToBill = count($effectivePages);
+          }
 
-        $numBnWPages = 0;
-        $numColorPages = 0;
-        $dbColorMode = $colorMode;
-        $monochromePages = null;
+          $countToBill = count($effectivePages);
 
-        switch (strtolower($colorMode)) {
-          case 'color':
-            $numColorPages = $countToBill;
-            $numBnWPages = 0;
-            $dbColorMode = 'color';
-            break;
-          case 'bnw':
-            $numBnWPages = $countToBill;
-            $numColorPages = 0;
-            $dbColorMode = 'bnw';
-            break;
-          case 'auto':                        
-            $numBnWPages = $countToBill;
-            $numColorPages = 0;
-            $dbColorMode = 'bnw';
-            break;
-          default:            
-            $monochromePages = $colorMode;
-            $bnwRanges = $this->parsePageRanges($colorMode);
-                        
-            $actualBnwPages = array_intersect($effectivePages, $bnwRanges);
-            
-            $numBnWPages = count($actualBnwPages);
-            $numColorPages = $countToBill - $numBnWPages;
+          $numBnWPages = 0;
+          $numColorPages = 0;
+          $dbColorMode = $colorMode;
+          $monochromePages = null;
 
-            if ($numColorPages > 0) {
+          switch (strtolower($colorMode)) {
+            case 'color':
+              $numColorPages = $countToBill;
+              $numBnWPages = 0;
               $dbColorMode = 'color';
-            } else {
+              break;
+            case 'bnw':
+              $numBnWPages = $countToBill;
+              $numColorPages = 0;
               $dbColorMode = 'bnw';
-            }
-            break;
+              break;
+            case 'auto':
+              $numBnWPages = $countToBill;
+              $numColorPages = 0;
+              $dbColorMode = 'bnw';
+              break;
+            default:
+              $monochromePages = $colorMode;
+              $bnwRanges = $this->parsePageRanges($colorMode);
+
+              $actualBnwPages = array_intersect($effectivePages, $bnwRanges);
+
+              $numBnWPages = count($actualBnwPages);
+              $numColorPages = $countToBill - $numBnWPages;
+
+              if ($numColorPages > 0) {
+                $dbColorMode = 'color';
+              } else {
+                $dbColorMode = 'bnw';
+              }
+              break;
+          }
+
+          // Calculate price for one copy
+          $unitPrice = ($numBnWPages * GetConfigs::bnw())
+            + ($numColorPages * GetConfigs::color());
+
+
+          // Calculate total item price based on copies
+          $totalItemPrice = $unitPrice * $copies;
+
+          $runningTotal += $totalItemPrice;
+
+          $detail = PrintJobDetail::create([
+            'parent_id' => $job->id,
+            'asset_id' => $asset->id,
+            'print_color' => $dbColorMode,
+            'price' => $totalItemPrice,
+            'status' => 'pending',
+            'copies' => $copies,
+            'paper_size' => $item['paper_size'] ?? null,
+            'scale' => $item['scale'] ?? null,
+            'side' => $item['side'] ?? null,
+            'pages_to_print' => $item['pages'] ?? null,
+            'monochrome_pages' => $monochromePages,
+          ]);
+
+          $detail->logs()->create([
+            'status' => 'pending',
+            'message' => 'File uploaded, waiting for payment'
+          ]);
         }
 
-        $unitPrice = ($numBnWPages * self::PRICE_BNW) + ($numColorPages * self::PRICE_COLOR);
-        $totalItemPrice = $unitPrice * $copies;
-        $runningTotal += $totalItemPrice;
+        $job->update(['total_price' => $runningTotal]);
 
-        $detail = PrintJobDetail::create([
-          'parent_id' => $job->id,
-          'asset_id' => $asset->id,
-          'print_color' => $dbColorMode,
-          'price' => $totalItemPrice,
-          'status' => 'pending',
-          'copies' => $copies,
-          'paper_size' => $item['paper_size'] ?? null,
-          'scale' => $item['scale'] ?? null,
-          'side' => $item['side'] ?? null,
-          'pages_to_print' => $item['pages'] ?? null,
-          'monochrome_pages' => $monochromePages,
-        ]);
+        return $job;
+      });
 
-        $detail->logs()->create([
-          'status' => 'pending',
-          'message' => 'File uploaded, waiting for payment'
-        ]);
-      }
-
-      $job->update(['total_price' => $runningTotal]);
-
-      return $job;
-    });
-
-    return response()->json([
-      'message' => 'Order created successfully',
-      'order_id' => $printJob->id,
-      'total_price' => $printJob->total_price,
-    ], 201);
+      return response()->json([
+        'message' => 'Order created successfully',
+        'order_id' => $printJob->id,
+        'total_price' => $printJob->total_price,
+      ], 201);
+    } catch (\Exception $e) {
+      return response()->json(['error' => 'Create failed', 'details' => $e->getMessage()], 500);
+    }
   }
 
-  public function show(PrintJob $printJob)
+  // Show print job details
+  public function show(PrintJob $printJob, Request $request)
   {
+    $printJob->load('details');
+
+    if ($request->inertia()) {
+      return Inertia::render('print-job/print-detail',
+        ['detail' => $printJob]
+      );
+    }
+
     return response()->json([
-      'success' => true,
-      'data' => $printJob->load(['details.asset', 'details.logs']),
+      'detail' => $printJob
     ]);
   }
 
-  public function simulatePayment(PrintJob $printJob)
+  // Mark print job as paid
+  public function simulatePayment(PrintJob $printJob, Request $req)
   {
     if ($printJob->status !== 'pending_payment') {
 
@@ -202,7 +224,8 @@ class PrintJobController extends Controller
     try {
       DB::transaction(function () use ($printJob) {
         $printJob->update([
-          'status' => 'pending'
+          'status' => 'pending',
+          'paid_at' => now()
         ]);
 
         foreach ($printJob->details as $detail) {
@@ -213,14 +236,14 @@ class PrintJobController extends Controller
         }
       });
 
-      if (request()->wantsJson() && !request()->header('X-Inertia') && request()->is('api/*')) {
-        return response()->json([
-          'message' => 'Payment successful',
-          'status' => $printJob->fresh()->status
-        ]);
+      if ($req->inertia()) {
+        return back()->with('message', 'Order marked as paid.');
       }
 
-      return back()->with('message', 'Order marked as paid.');
+      return response()->json([
+        'message' => 'Payment successful',
+        'status' => $printJob->fresh()->status
+      ]);
     } catch (\Exception $e) {
       if (request()->is('api/*')) {
         return response()->json(['error' => 'Payment processing failed', 'details' => $e->getMessage()], 500);
@@ -229,18 +252,18 @@ class PrintJobController extends Controller
     }
   }
 
+  // Cancel print job
   public function cancelPrintJob(PrintJob $printJob, Request $req)
   {
     if ($printJob->status == 'failed' || $printJob->status == 'completed' || $printJob->status == 'partially_failed') {
 
       if ($req->inertia()) {
-        return back()->with('message', 'You cannot candel this print job.');
+        return back()->with('message', 'You cannot cancel this print job.');
       }
       return response()->json([
         'error' => 'Invalid Request',
-        'message' => 'You cannot candel this print job. Current status: ' . $printJob->status
+        'message' => 'You cannot cancel this print job. Current status: ' . $printJob->status
       ], 400);
-
     }
 
     try {
@@ -273,9 +296,11 @@ class PrintJobController extends Controller
     }
   }
 
+  // Sent a pending print job to the queue to get printed
   public function dispatchJob(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
   {
     try {
+      // If pending, dispatch it. If queued, it's fine. Otherwise error.
       if ($printJob->status === 'pending') {
         $printJob->dispatchToQueue();
       } elseif ($printJob->status !== 'queued') {
@@ -312,12 +337,15 @@ class PrintJobController extends Controller
       ], $statusCode);
     }
   }
-  
+
+//    ----------------
+//    Helper functions
+//    ----------------
   private function countPages($filePath, $originalName): int
   {
     try {
-      $printerServerUrl = 'http://localhost:8080/count-pages';
-      
+      $printerServerUrl = GetConfigs::printServEnpoint() . '/count-pages';
+
       $response = Http::timeout(5)->attach(
         'file',
         file_get_contents($filePath),
@@ -325,7 +353,7 @@ class PrintJobController extends Controller
       )->post($printerServerUrl);
 
       if ($response->successful()) {
-        return (int) $response->json('pages');
+        return (int)$response->json('pages');
       }
 
       return 1;
@@ -381,4 +409,5 @@ class PrintJobController extends Controller
       ], 500);
     }
   }
+
 }

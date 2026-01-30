@@ -16,7 +16,7 @@ export interface Printer {
   name: number;
   pages_remaining: number;
   primary: boolean;
-  status: "ready"| "offline" | "busy"| "unknown";
+  status: "ready" | "offline" | "busy";
 
 }
 
@@ -39,3 +39,23 @@ export type PrintStatus =
   | 'partially_failed'
   | 'failed'
   | 'cancelled'
+
+export interface Configuration {
+  value: ConfigValue
+  primary: boolean
+}
+
+export interface ConfigValue {
+
+  prices: Prices
+  prinserv_endpoint: string
+  mobilekiosk_endpoint: string
+  whatsappbot_endpoint: string
+  temp_duration: number
+  delete_files: boolean
+}
+
+export interface Prices {
+  bnw: number
+  color: number
+}
