@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\ApiConfigurationController;
 use App\Http\Controllers\PrintJobController;
 use App\Http\Controllers\PrinterController;
 use App\Http\Controllers\PrinterInfoController;
 use App\Http\Controllers\PrinterWebhookController;
 use Illuminate\Support\Facades\Route;
+
+// Config
+Route::get('/config', [ApiConfigurationController::class, 'index'])->name('api.config');
 
 // Create a New Order
 Route::post('/print-job/create', [PrintJobController::class, 'store'])->name('apiPrintJobs.store');
