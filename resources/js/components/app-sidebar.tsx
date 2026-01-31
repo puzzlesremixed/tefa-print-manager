@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { config, dashboard, history, queue } from '@/routes';
+import { config, dashboard, history, home, queue } from '@/routes';
 import type { NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import {
@@ -49,13 +49,8 @@ const mainNavItems: NavItem[] = [
 const footerNavItems: NavItem[] = [
   {
     title: 'Repository',
-    href: 'https://github.com/laravel/react-starter-kit',
+    href: 'https://github.com/puzzlesremixed/tefa-print-manager',
     icon: Folder,
-  },
-  {
-    title: 'Documentation',
-    href: 'https://laravel.com/docs/starter-kits#react',
-    icon: BookOpen,
   },
 ];
 
@@ -66,7 +61,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href={dashboard()} prefetch>
+              <Link href={home()} prefetch>
                 <AppLogo />
               </Link>
             </SidebarMenuButton>
