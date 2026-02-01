@@ -57,9 +57,11 @@ class Configuration extends Model
     return Configuration::configs('price.bnw');
   }
 
-  public static function priceColor(): int
+
+  public static function unsetPrimary(): void
   {
-    return Configuration::configs('price.color');
+    self::where('primary', true)
+        ->update(['primary' => false]);
   }
 
 

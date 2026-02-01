@@ -26,6 +26,11 @@ class DatabaseSeeder extends Seeder
         'prinkiosk_endpoint' => "http://localhost:8080",
         'whatsappbot_endpoint' => "http://localhost:8080",
         'temp_duration' => 60000,
+        'excluded_printers' => [
+          'Microsoft Print to PDF',
+          'OneNote for Windows 10',
+          'OneNote (Desktop)',
+        ],
       ],
       'primary' => true
     ]);
