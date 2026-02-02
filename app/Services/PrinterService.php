@@ -46,7 +46,7 @@ class PrinterService
 
     try {
       $printerApiUrl = GetConfigs::printServEnpoint() . '/print';
-      $webhookUrl = route('api.printer.webhook');
+      $webhookUrl = route('apiPrinter.webhook');
       $filePath = $detail->asset->full_path;
 
             Log::info('Filepath' . $filePath);
