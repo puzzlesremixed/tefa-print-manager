@@ -28,10 +28,14 @@ Route::post('/print-job/refresh', [PrintJobController::class, 'refreshQueue'])
     ->name('printjobs.refresh');
 
 // Get Printer List
-Route::get('/printers', [PrinterController::class, 'index'])->name('printers.index');
-Route::post('/printers/{id}/primary', [PrinterInfoController::class, 'setPrimary']);
-Route::post('/printers/sync', [PrinterInfoController::class, 'syncPrinters']);
+Route::get('/printers', [PrinterController::class, 'index'])->name('api.printers.index');
+
+Route::post('/printers/{id}/primary', [PrinterInfoController::class, 'setPrimary'])->name('printers.setPrimary');
+Route::post('/printers/sync', [PrinterInfoController::class, 'syncPrinters'])->name('printers.sync');
 Route::post('/printers/{id}/paper', [PrinterInfoController::class, 'updatePaperCount']);
+
+Route::post('/config/printers/exclude/add', [PrinterInfoController::class, 'addPrinterExclusion'])->name('printers.exclude.add');
+Route::post('/config/printers/exclude/remove/{printer_name}', [PrinterInfoController::class, 'deletePrinterExclusion'])->name('printers.exclude.remove');
 
 // Webhook for status
 Route::post('/printer/webhook', [PrinterWebhookController::class, 'handle'])

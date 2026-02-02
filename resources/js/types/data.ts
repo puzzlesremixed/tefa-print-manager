@@ -17,6 +17,7 @@ export interface Printer {
   pages_remaining: number;
   primary: boolean;
   status: "ready" | "offline" | "busy";
+  paper_sizes: string[];
 
 }
 
@@ -58,4 +59,10 @@ export interface ConfigValue {
 export interface Prices {
   bnw: number
   color: number
+}
+
+export const PrinterStatusMap : Record<string, string> = {
+  'offline' : 'Offline',
+  'ready' : 'Ready',
+  'busy' : 'Busy',
 }

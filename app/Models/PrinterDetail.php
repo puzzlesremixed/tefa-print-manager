@@ -11,12 +11,14 @@ class PrinterDetail extends Model
   protected $fillable = [
     'name',
     'paper_remaining',
+    'paper_sizes',
     'status',
     'primary',
   ];
 
   protected $casts = [
     'primary' => 'boolean',
+    'paper_sizes' => 'array',
   ];
 
   // fetch db
@@ -37,6 +39,18 @@ class PrinterDetail extends Model
     }
   }
 
+  public static function getAllWithoutPrimary()
+  {
+    $printer = self::where('primary', false)->get();
+    if ($printer) {
+
+      return $printer;
+    } else {
+      return null;
+    }
+  }
+
+
   public static function setAsPrimary(string $id): void
   {
     self::query()->update(['primary' => false]);
@@ -46,11 +60,10 @@ class PrinterDetail extends Model
     ]);
   }
 
-  public static function unsetPrimary(string $id): void
+  public static function unsetPrimary(): void
   {
-    self::where('id', $id)->update([
-      'primary' => false,
-    ]);
+    self::where('primary', true)
+        ->update(['primary' => false]);
   }
 
   public function getIsLowPaperAttribute(): bool
@@ -59,27 +72,30 @@ class PrinterDetail extends Model
   }
 
 
-  public static function syncFromEndpoint(): void
+  public static function syncFromEndpoint()
   {
     $response = Http::get(url(GetConfigs::printServEnpoint() . '/printers'));
 
     if (!$response->successful()) {
-      return;
+      return back()->with('error', 'Failed to sync printers from PrinServ endpoint.');
     }
-
     $printers = $response->json('printers', []);
 
     foreach ($printers as $printer) {
-      self::updateOrCreate(
-        [
-          'name' => $printer['name'],
-        ],
-        [
-          'paper_remaining' => 0,
-          'status' => 'offline',
-          'primary' => false,
-        ]
-      );
+      $excludedPrinters = GetConfigs::excludedPrinters();
+
+      if (!in_array($printer['name'], $excludedPrinters, true)) {
+        self::firstOrCreate(
+          ['name' => $printer['name']],
+          [
+            'paper_remaining' => 0,
+            'paper_sizes' => $printer['paperSizes'] ?? [],
+            'status' => 'offline',
+            'primary' => false,
+          ]
+        );
+      }
     }
+    return;
   }
 }

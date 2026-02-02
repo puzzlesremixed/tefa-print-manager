@@ -12,8 +12,9 @@ return new class extends Migration {
   {
     Schema::create('printer_details', function (Blueprint $table) {
       $table->id();
-      $table->string("name");
+      $table->string("name")->unique();
       $table->integer("paper_remaining")->nullable();
+      $table->json("paper_sizes")->nullable();
       $table->enum("status", ["ready", "offline", "busy"]);
       $table->boolean('primary')->default(false);
       $table->timestamps();

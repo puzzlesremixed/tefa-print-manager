@@ -1,4 +1,5 @@
 import { store } from '@/actions/App/Http/Controllers/ConfigurationController';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -11,13 +12,15 @@ import {
   FieldSet,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import AppLayout from '@/layouts/app-layout';
 import { config } from '@/routes';
+import printers from '@/routes/printers';
 import type { BreadcrumbItem } from '@/types';
-import { ConfigValue, Printer } from '@/types/data';
+import { ConfigValue, Printer, PrinterStatusMap } from '@/types/data';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronRight, RefreshCcw } from 'lucide-react';
+import { ChevronRight} from 'lucide-react';
 import { useForm, UseFormReturn } from 'react-hook-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -32,16 +35,6 @@ interface ConfigProps {
   configuration?: ConfigValue;
 }
 
-function sync() {
-  router.post(
-    `/api/printers/sync`,
-    {},
-    {
-      preserveState: true,
-      preserveScroll: true,
-    },
-  );
-}
 
 type FormType = {
   prices: Prices;
@@ -52,10 +45,10 @@ type FormType = {
   delete_files: boolean;
 };
 
-type Prices = {
-  bnw: number;
-  color: number;
-};
+  type Prices = {
+    bnw: number;
+    color: number;
+  };
 
 export default function Config({ primaryPrinter, configuration }: ConfigProps) {
   const form = useForm<FormType>({
@@ -82,30 +75,50 @@ export default function Config({ primaryPrinter, configuration }: ConfigProps) {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Configuration" />
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
+      <div
         className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
       >
         <section className="flex flex-col gap-8 lg:flex-row">
           <div className="w-full text-left lg:w-[40%] lg:text-right">
-            <h2 className="mb-2 text-2xl">Printer settings</h2>
-            <Link href="/" className="hover:underline">
+            <h2 className="mb-2 text-2xl">Printer Settings</h2>
+            <Link href={printers.index()} className="hover:underline">
               More printers <ChevronRight className="inline-block h-4 w-4" />
             </Link>
           </div>
           <div className="w-full">
-            <Button className="" variant={'secondary'} onClick={() => sync()}>
-              <RefreshCcw />
-              Sync Printer
-            </Button>
-            <Card>
-              <CardContent>
-                <p className="italic">// printer info</p>
-              </CardContent>
-            </Card>
+                 {primaryPrinter?.name ? (
+              <Card className="">
+                <CardContent className="flex flex-col items-start justify-between gap-2 lg:flex-row">
+                  <div>
+                    <p className="font-bold">
+                      {primaryPrinter.name}
+                      <span className="text-muted-foreground">
+                        {' '}
+                        / {PrinterStatusMap[primaryPrinter.status]}
+                      </span>
+                    </p>
+                    <p className="text-muted-foreground">
+                      {primaryPrinter.paper_sizes &&
+                        primaryPrinter.paper_sizes
+                          .map((item) => String(item))
+                          .join(', ')}
+                    </p>
+                  </div>
+                  <Badge className="bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    PRIMARY
+                  </Badge>
+                </CardContent>
+              </Card>
+            ) : (
+              <p className="text-muted-foreground">
+                No primary printer set. Add a printer and set it as primary to
+                make it the default printer for future print jobs.
+              </p>
+            )}
           </div>
         </section>
         <hr />
+        <form onSubmit={form.handleSubmit(onSubmit)}>
         <section className="flex flex-col gap-8 lg:flex-row">
           <div className="w-full text-left lg:w-[40%] lg:text-right">
             <h2 className="mb-2 text-2xl">Store Settings</h2>
@@ -127,10 +140,10 @@ export default function Config({ primaryPrinter, configuration }: ConfigProps) {
             </FieldGroup>
           </div>
         </section>
-        <hr />
+        <Separator className='my-4'/>
         <section className="flex flex-col gap-8 lg:flex-row">
           <div className="w-full text-left lg:w-[40%] lg:text-right">
-            <h2 className="mb-2 text-2xl">Print manager settings</h2>
+            <h2 className="mb-2 text-2xl">Print Manager Settings</h2>
           </div>
           <div className="w-full">
             <PrinManSettings form={form} />
@@ -145,7 +158,8 @@ export default function Config({ primaryPrinter, configuration }: ConfigProps) {
             <Button type="submit">Submit</Button>
           </Field>
         </div>
-      </form>
+        </form>
+      </div>
     </AppLayout>
   );
 }
@@ -230,6 +244,7 @@ function PrinManSettings({ form }: { form: UseFormReturn<FormType> }) {
 
       <FieldGroup className={''}>
         <FieldSet className={'text-nowrap'}>
+          {/* TODO : implement files cleanup */}
           <FieldLegend>Temporary Files Cleanup</FieldLegend>
           <FieldDescription>
             Set how print job files are being stored

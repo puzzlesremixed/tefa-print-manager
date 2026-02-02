@@ -21,6 +21,14 @@ class ConfigurationController extends Controller
     ]);
   }
 
+  public function deletePrinter(PrinterDetail $id)
+  {
+    //
+  }
+
+
+
+
   public function store(Request $request)
   {
     $validated = $request->validate([
@@ -33,24 +41,26 @@ class ConfigurationController extends Controller
       'mobilekiosk_endpoint' => ['nullable', 'string', 'min:5'],
     ]);
 
-    DB::transaction(function () use ($validated) {
-      // demote existing primary
-      Configuration::where('primary', true)
-        ->update(['primary' => false]);
+    $primary = Configuration::getPrimary();
+    $values = $primary?->values ?? [];
 
-      // create new primary
+    $changes = array_merge($values, [
+      'prices' => array_merge($values['prices'] ?? [], [
+        'bnw'   => $validated['prices']['bnw'],
+        'color' => $validated['prices']['color'],
+      ]),
+      'temp_duration' => $validated['temp_duration'],
+      'delete_files' => $validated['delete_files'],
+      'prinserv_endpoint' => $validated['prinserv_endpoint'],
+      'whatsappbot_endpoint' => $validated['whatsappbot_endpoint'],
+      'mobilekiosk_endpoint' => $validated['mobilekiosk_endpoint'],
+    ]);
+
+    DB::transaction(function () use ($changes) {
+      Configuration::unsetPrimary();
+
       Configuration::create([
-        'values' => [
-          'prices' => [
-            'bnw' => $validated['prices']['bnw'],
-            'color' => $validated['prices']['color'],
-          ],
-          'temp_duration' => $validated['temp_duration'],
-          'delete_files' => $validated['delete_files'],
-          'prinserv_endpoint' => $validated['prinserv_endpoint'],
-          'whatsappbot_endpoint' => $validated['whatsappbot_endpoint'],
-          'mobilekiosk_endpoint' => $validated['mobilekiosk_endpoint'],
-        ],
+        'values' => $changes,
         'primary' => true,
       ]);
     });
