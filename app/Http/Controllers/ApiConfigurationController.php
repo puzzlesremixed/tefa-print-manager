@@ -14,8 +14,8 @@ class ApiConfigurationController extends Controller
             'success' => true,
             'data' => [
                 'prices' => [
-                    'bnw' => $prices['bnw'] ?? null,
-                    'color' => $prices['color'] ?? null,
+                    'bnw' => GetConfigs::bnw() ?? null,
+                    'color' => GetConfigs::color() ?? null,
                 ]
             ]
         ]);

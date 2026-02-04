@@ -8,17 +8,12 @@ use App\Models\PrintJobDetail;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
-
 
 class PrintJobController extends Controller
 {
-
-  // Create a new print job
   public function store(Request $request)
   {
     try {
@@ -26,7 +21,6 @@ class PrintJobController extends Controller
         $parts = explode(',', $value);
         foreach ($parts as $part) {
           $part = trim($part);
-          // Regex to validate a number or a number-range
           if (!preg_match('/^[1-9]\d*(-[1-9]\d*)?$/', $part)) {
             $fail($attribute . ' contains an invalid page or page range format. Use formats like "1", "1-10", or "1,5,10-12".');
             return;
@@ -42,10 +36,9 @@ class PrintJobController extends Controller
       };
 
       $colorRule = function ($attribute, $value, $fail) use ($pageRangeRule) {
-        if (in_array(strtolower($value), ['color', 'bnw', 'auto'])) {
+        if (in_array(strtolower($value), ['color', 'bnw'])) {
           return;
         }
-        // If not a keyword, it must be a page range for monochrome pages
         $pageRangeRule($attribute, $value, $fail);
       };
 
@@ -82,8 +75,7 @@ class PrintJobController extends Controller
 
           $totalFilePages = $this->countPages($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
 
-          Log::emergency("Real Path:" . $uploadedFile->getRealPath());
-          Log::critical('Ext:' . $uploadedFile->extension());
+          Log::info("Processing file: " . $uploadedFile->getClientOriginalName() . " | Initial Pages: " . $totalFilePages);
 
           $asset = Asset::create([
             'basename' => $uploadedFile->getClientOriginalName(),
@@ -93,9 +85,9 @@ class PrintJobController extends Controller
             'pages' => $totalFilePages,
           ]);
 
-          $effectivePages = [];
           $pagesToPrintString = $item['pages'] ?? null;
 
+          $effectivePages = [];
           if ($pagesToPrintString) {
             $requestedPages = $this->parsePageRanges($pagesToPrintString);
             $effectivePages = array_filter($requestedPages, function ($p) use ($totalFilePages) {
@@ -111,23 +103,60 @@ class PrintJobController extends Controller
           $numColorPages = 0;
           $dbColorMode = $colorMode;
           $monochromePages = null;
+          $unitPrice = 0;
 
           switch (strtolower($colorMode)) {
             case 'color':
-              $numColorPages = $countToBill;
-              $numBnWPages = 0;
+              $apiResult = $this->detectColorsAndPrices($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
+
+              if (!$apiResult || empty($apiResult['colors'])) {
+                Log::warning("Color detection API failed or returned empty. Falling back to static configuration.");
+                $numColorPages = $countToBill;
+                $numBnWPages = 0;
+                $unitPrice = $numColorPages * GetConfigs::color();
+              } else {
+                $detectedTotalPages = $apiResult['total_pages'] ?? count($apiResult['colors']);
+
+                if ($detectedTotalPages > 0 && $detectedTotalPages != $totalFilePages) {
+                  $totalFilePages = $detectedTotalPages;
+                  $asset->update(['pages' => $totalFilePages]);
+
+                  if ($pagesToPrintString) {
+                    $requestedPages = $this->parsePageRanges($pagesToPrintString);
+                    $effectivePages = array_filter($requestedPages, function ($p) use ($totalFilePages) {
+                      return $p <= $totalFilePages;
+                    });
+                  } else {
+                    $effectivePages = range(1, $totalFilePages);
+                  }
+                  $countToBill = count($effectivePages);
+                }
+
+                foreach ($apiResult['colors'] as $pageData) {
+                  $pageNumber = $pageData['page'];
+
+                  if (in_array($pageNumber, $effectivePages)) {
+                    $unitPrice += $pageData['price'];
+
+                    if ($pageData['color'] === 'black_and_white') {
+                      $numBnWPages++;
+                    } else {
+                      $numColorPages++;
+                    }
+                  }
+                }
+              }
+
               $dbColorMode = 'color';
               break;
+
             case 'bnw':
               $numBnWPages = $countToBill;
               $numColorPages = 0;
               $dbColorMode = 'bnw';
+              $unitPrice = $numBnWPages * GetConfigs::bnw();
               break;
-            case 'auto':
-              $numBnWPages = $countToBill;
-              $numColorPages = 0;
-              $dbColorMode = 'bnw';
-              break;
+
             default:
               $monochromePages = $colorMode;
               $bnwRanges = $this->parsePageRanges($colorMode);
@@ -142,15 +171,12 @@ class PrintJobController extends Controller
               } else {
                 $dbColorMode = 'bnw';
               }
+
+              $unitPrice = ($numBnWPages * GetConfigs::bnw())
+                + ($numColorPages * GetConfigs::color());
               break;
           }
 
-          // Calculate price for one copy
-          $unitPrice = ($numBnWPages * GetConfigs::bnw())
-            + ($numColorPages * GetConfigs::color());
-
-
-          // Calculate total item price based on copies
           $totalItemPrice = $unitPrice * $copies;
 
           $runningTotal += $totalItemPrice;
@@ -186,17 +212,18 @@ class PrintJobController extends Controller
         'total_price' => $printJob->total_price,
       ], 201);
     } catch (\Exception $e) {
+      Log::error("Print Job Store Error: " . $e->getMessage());
       return response()->json(['error' => 'Create failed', 'details' => $e->getMessage()], 500);
     }
   }
 
-  // Show print job details
   public function show(PrintJob $printJob, Request $request)
   {
     $printJob->load('details');
 
     if ($request->inertia()) {
-      return Inertia::render('print-job/print-detail',
+      return Inertia::render(
+        'print-job/print-detail',
         ['detail' => $printJob]
       );
     }
@@ -206,7 +233,6 @@ class PrintJobController extends Controller
     ]);
   }
 
-  // Mark print job as paid
   public function simulatePayment(PrintJob $printJob, Request $req)
   {
     if ($printJob->status !== 'pending_payment') {
@@ -252,7 +278,6 @@ class PrintJobController extends Controller
     }
   }
 
-  // Cancel print job
   public function cancelPrintJob(PrintJob $printJob, Request $req)
   {
     if ($printJob->status == 'failed' || $printJob->status == 'completed' || $printJob->status == 'partially_failed') {
@@ -296,11 +321,9 @@ class PrintJobController extends Controller
     }
   }
 
-  // Sent a pending print job to the queue to get printed
   public function dispatchJob(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
   {
     try {
-      // If pending, dispatch it. If queued, it's fine. Otherwise error.
       if ($printJob->status === 'pending') {
         $printJob->dispatchToQueue();
       } elseif ($printJob->status !== 'queued') {
@@ -338,9 +361,49 @@ class PrintJobController extends Controller
     }
   }
 
-//    ----------------
-//    Helper functions
-//    ----------------
+
+  public function refreshQueue(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
+  {
+    try {
+      $printerService->processNextItem();
+      if ($req->inertia()) {
+        return back();
+      }
+
+      return response()->json([
+        'message' => "Refreshed."
+      ]);
+    } catch (Exception $e) {
+      if ($req->inertia()) {
+        return back()->withErrors(['status' => $e->getMessage()]);
+      }
+      return response()->json([
+        'error' => 'Dispatch failed',
+        'message' => $e->getMessage()
+      ], 500);
+    }
+  }
+
+  private function detectColorsAndPrices($filePath, $originalName)
+  {
+    try {
+      $response = Http::timeout(30)
+        ->attach('files', file_get_contents($filePath), $originalName)
+        ->post('http://localhost:5000/detect');
+
+      if ($response->successful()) {
+        $json = $response->json();
+        if (isset($json['data']) && count($json['data']) > 0) {
+          return $json['data'][0];
+        }
+      }
+      return null;
+    } catch (\Exception $e) {
+      Log::error("Detect Colors failed: " . $e->getMessage());
+      return null;
+    }
+  }
+
   private function countPages($filePath, $originalName): int
   {
     try {
@@ -353,7 +416,7 @@ class PrintJobController extends Controller
       )->post($printerServerUrl);
 
       if ($response->successful()) {
-        return (int)$response->json('pages');
+        return (int) $response->json('pages');
       }
 
       return 1;
@@ -386,28 +449,6 @@ class PrintJobController extends Controller
     }
 
     return array_unique($pages);
-  }
-
-  public function refreshQueue(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
-  {
-    try {
-      $printerService->processNextItem();
-      if ($req->inertia()) {
-        return back();
-      }
-
-      return response()->json([
-        'message' => "Refreshed."
-      ]);
-    } catch (Exception $e) {
-      if ($req->inertia()) {
-        return back()->withErrors(['status' => $e->getMessage()]);
-      }
-      return response()->json([
-        'error' => 'Dispatch failed',
-        'message' => $e->getMessage()
-      ], 500);
-    }
   }
 
 }
