@@ -1,3 +1,4 @@
+import { updatePaperCount } from '@/actions/App/Http/Controllers/PrinterInfoController';
 import { DataTable } from '@/components/data-table';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -113,7 +114,7 @@ const Columns: ColumnDef<PrintJob>[] = [
   },
 ];
 
-export default function home({ allFiles }: QueueProps) {
+export default function home({ allFiles, printer }: QueueProps) {
 usePoll(2000);
   return (
     <div className="flex h-screen overflow-hidden select-none">
@@ -138,6 +139,11 @@ usePoll(2000);
               <span className="h-1.5 w-1.5 animate-pulse rounded-full"></span>
               <span className="text-[9px] leading-none font-black tracking-widest text-green-700 uppercase dark:text-lime-400">
                 {/* Printer ({QueueProps.printer.status}) */} Printer Ready
+              </span>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-green-100 px-3 py-1.5">
+              <span className="text-[9px] leading-none font-black tracking-widest text-green-700 uppercase dark:text-lime-400">
+                {/* Printer ({QueueProps.printer.status}) */} Paper Remaining : {printer.paper_remaining ?? 0}
               </span>
             </div>
           </div>

@@ -21,7 +21,7 @@ class HomeController extends Controller
 
     return Inertia::render('home', [
       'allFiles' => $allFiles,
-      'primaryPrinter' => $primaryPrinter
+      'printer' => $primaryPrinter
     ]);
   }
 }
