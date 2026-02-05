@@ -5,6 +5,7 @@ import {Card, CardContent} from '@/components/ui/card';
 import type {Printer, PrintJob} from '@/types/data';
 import {router} from '@inertiajs/react';
 import {refresh} from "@/routes/printjobs";
+import { updatePaperCount } from '@/actions/App/Http/Controllers/PrinterInfoController';
 
 interface props {
   printer?: Printer;
@@ -36,6 +37,16 @@ const PrinterCount = ({printer, runningFiles}: props) => {
         <CardContent>
           <p className="text-foreground-muted">{printer?.name ?? "No primary printer"}</p>
           <p>{runningFiles ? runningFiles.customer_name : 'No running files'}</p>
+          <p>Paper Count: {printer ? printer.paper_remaining : 'habis'}</p>
+
+          {printer &&
+          <Button className='m-2 px-6' onClick={() => router.post(updatePaperCount(printer.id), {"paper_remaining" : printer.paper_remaining + 5})}>+5</Button>}
+          {printer &&
+          <Button className='m-2 px-6' onClick={() => router.post(updatePaperCount(printer.id), {"paper_remaining" : printer.paper_remaining + 10})}>+10</Button>}
+          {printer &&
+          <Button className='m-2 px-6' onClick={() => router.post(updatePaperCount(printer.id), {"paper_remaining" : printer.paper_remaining + 20})}>+20</Button>}
+          {printer &&
+          <Button className='m-2 px-6' onClick={() => router.post(updatePaperCount(printer.id), {"paper_remaining" : printer.paper_remaining + 50})}>+50</Button>}
         </CardContent>
       </Card>
     </section>
