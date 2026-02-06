@@ -5,10 +5,28 @@ export interface Asset {
 }
 
 export interface PrintJobDetail {
-  id: number;
-  print_color: 'color' | 'bnw';
+   id: string;
+  asset_id: string;
+  paper_count: number | null;
+  copies: number;
+  paper_size: string | null;
+  scale: string | null;
+  side: string | null;
+  pages_to_print: string | null;
+  monochrome_pages: string | null;
+  print_color: 'color' | 'bnw' | 'full_color';
+  price: number;
+  status: 'pending' | 'queued' | 'printing' | 'completed' | 'failed' | 'cancelled' | 'request_edit';
+  edit_notes: string | null;
+  logs?: PrintJobLog[];
+}
+
+interface PrintJobLog {
+  id: string;
+  detail_id: string;
   status: string;
-  asset: Asset;
+  message: string | null;
+  created_at: string;
 }
 
 export interface Printer {
@@ -22,10 +40,11 @@ export interface Printer {
 }
 
 export interface PrintJob {
-  id: number;
-  customer_name: string;
+  id: string;
   customer_number: string;
+  customer_name: string;
   total_price: number;
+  paid_at: string | null;
   status: PrintStatus;
   created_at: string;
   details: PrintJobDetail[];
