@@ -45,7 +45,7 @@ class QueueController extends Controller
       'runningFiles' => $runningFiles,
       'requestEditFiles' => $requestEditFiles,
       'waitingPaymentFiles' => $waitingPaymentFiles,
-      'primaryPrinter' => $primaryPrinter
+      'printer' => $primaryPrinter
     ]);
   }
 }

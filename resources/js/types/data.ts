@@ -14,7 +14,7 @@ export interface PrintJobDetail {
 export interface Printer {
   id: number;
   name: number;
-  pages_remaining: number;
+  paper_remaining: number;
   primary: boolean;
   status: "ready" | "offline" | "busy";
   paper_sizes: string[];

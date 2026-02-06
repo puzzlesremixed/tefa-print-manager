@@ -16,12 +16,12 @@ class GetConfigs
     return Configuration::configs('prices.color');
   }
 
-  
+
   public static function printServEnpoint()
   {
     return Configuration::configs('prinserv_endpoint');
   }
-  public static function excludedPrinters(): array
+  public static function excludedPrinters()
   {
     return Configuration::configs('excluded_printers');
   }
