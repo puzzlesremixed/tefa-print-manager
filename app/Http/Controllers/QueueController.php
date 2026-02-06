@@ -32,12 +32,18 @@ class QueueController extends Controller
       ->orderBy('created_at', 'desc')
       ->get();
 
+      $requestEditFiles = (clone $query)
+      ->where('status', 'request_edit')
+      ->orderBy('created_at', 'desc')
+      ->get();
+
     $primaryPrinter = PrinterDetail::getPrimary();
 
     return Inertia::render('queue', [
       'queuedFiles' => $queuedFiles,
       'pendingFiles' => $pendingFiles,
       'runningFiles' => $runningFiles,
+      'requestEditFiles' => $requestEditFiles,
       'waitingPaymentFiles' => $waitingPaymentFiles,
       'primaryPrinter' => $primaryPrinter
     ]);

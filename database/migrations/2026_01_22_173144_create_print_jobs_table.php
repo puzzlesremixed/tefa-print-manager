@@ -29,7 +29,8 @@ return new class extends Migration
           'completed',
           'partially_failed',
           'failed',
-          'cancelled'
+          'cancelled',
+          'request_edit' // one of the file needs edit
         ]
       );
       $table->timestamps();
@@ -39,11 +40,18 @@ return new class extends Migration
       $table->uuid('id')->primary();
       $table->foreignUuid('parent_id')->constrained('print_jobs')->onDelete('cascade');
       $table->foreignUuid('asset_id')->constrained('assets');
-
-      $table->enum('print_color', ['color', 'bnw']);
+      // TODO : get paper count from bot
+      $table->integer('paper_count')->nullable();
+      $table->integer('copies')->default(1)->after('price');
+      $table->string('paper_size')->nullable()->after('copies');
+      $table->string('scale')->nullable()->after('paper_size'); // fit, noscale, shrink
+      $table->string('side')->nullable()->after('scale'); // duplex, duplexshort, duplexlong, simplex
+      $table->string('pages_to_print')->nullable()->after('side'); // e.g. "1,3-5"
+      $table->string('monochrome_pages')->nullable()->after('pages_to_print'); // e.g. "1,3-5"
+      $table->enum('print_color', ['color', 'bnw', 'full_color']);
       $table->integer('price');
-
-      $table->enum('status', ['pending', 'queued', 'printing', 'completed', 'failed', 'cancelled'])->default('pending');
+      $table->string('edit_notes')->nullable();
+      $table->enum('status', ['pending', 'queued', 'printing', 'completed', 'failed', 'cancelled', 'request_edit'])->default('pending');
       $table->integer('priority')->default(0);
 
       $table->tinyInteger('attempts')->default(0); // track printing attempts, fails the job after certain amount

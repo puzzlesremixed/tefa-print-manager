@@ -16,6 +16,7 @@ interface QueueProps {
   queuedFiles: PrintJob[];
   pendingFiles: PrintJob[];
   runningFiles: PrintJob;
+  requestEditFiles: PrintJob[];
   waitingPaymentFiles: PrintJob[];
   printer: Printer;
 }
@@ -47,15 +48,6 @@ function SimulatePaymentCell({id}: { id: number }) {
 
 const queueColumns: ColumnDef<PrintJob>[] = [
   ...basePrintJobColumns,
-  {
-    accessorKey: 'status',
-    header: 'Status',
-    cell: ({row}) => {
-      return (
-        <StatusBadge status={row.original.status}/>
-      );
-    },
-  },
   {
     accessorKey: 'actions',
     header: 'Actions',
@@ -111,6 +103,22 @@ const unpaidColumns: ColumnDef<PrintJob>[] = [
   },
 ];
 
+const editColumns: ColumnDef<PrintJob>[] = [
+  ...basePrintJobColumns,
+  {
+    accessorKey: 'actions',
+    header: 'Actions',
+
+    cell: ({row}) => {
+      return (
+        <div className="flex gap-2">
+          <CancelCell id={row.original.id}/>
+        </div>
+      );
+    },
+  },
+];
+
 const breadcrumbs = [{title: 'Queue', href: '/queue'}];
 
 
@@ -118,9 +126,9 @@ export default function Queue({
                                 queuedFiles,
                                 pendingFiles,
                                 runningFiles,
+                                requestEditFiles,
                                 waitingPaymentFiles, printer
                               }: QueueProps) {
-  const {flash} = usePage();
   usePoll(2000);
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -132,13 +140,16 @@ export default function Queue({
         <Tabs defaultValue="queued" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="queued">
-              Queued ({queuedFiles.length})
+              Queued {queuedFiles.length > 0 && `(${queuedFiles.length})`}
             </TabsTrigger>
             <TabsTrigger value="pending">
-              Pending ({pendingFiles.length})
+              Pending {pendingFiles.length > 0 && `(${pendingFiles.length})`} 
             </TabsTrigger>
             <TabsTrigger value="payment">
-              Unpaid ({waitingPaymentFiles.length})
+              Unpaid {waitingPaymentFiles.length > 0 && `(${waitingPaymentFiles.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="needsEdit">
+              Needs edit {requestEditFiles.length > 0 && `(${requestEditFiles.length})`}
             </TabsTrigger>
           </TabsList>
 
@@ -157,6 +168,12 @@ export default function Queue({
           <TabsContent value="payment">
             <div className="rounded-md border">
               <DataTable columns={unpaidColumns} data={waitingPaymentFiles}/>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="needsEdit">
+            <div className="rounded-md border">
+              <DataTable columns={editColumns} data={requestEditFiles}/>
             </div>
           </TabsContent>
         </Tabs>

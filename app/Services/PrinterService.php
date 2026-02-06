@@ -68,6 +68,10 @@ class PrinterService
                 $payload['monochrome'] = $detail->print_color === 'bnw';
             }
 
+             if ($detail->copies) {
+                $payload['copies'] = $detail->copies;
+            }
+
             if ($detail->paper_size) {
                 $payload['paperSize'] = $detail->paper_size;
             }

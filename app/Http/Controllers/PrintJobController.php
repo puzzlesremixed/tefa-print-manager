@@ -36,7 +36,7 @@ class PrintJobController extends Controller
       };
 
       $colorRule = function ($attribute, $value, $fail) use ($pageRangeRule) {
-        if (in_array(strtolower($value), ['color', 'bnw'])) {
+        if (in_array(strtolower($value), ['color', 'bnw', 'full_color'])) {
           return;
         }
         $pageRangeRule($attribute, $value, $fail);
@@ -48,6 +48,8 @@ class PrintJobController extends Controller
         'items' => 'required|array',
         'items.*.file' => 'required|file',
         'items.*.color' => ['required', 'string', $colorRule],
+        'items.*.needs_edit' => 'nullable',
+        'items.*.edit_notes' => 'nullable|string',
         'items.*.copies' => 'sometimes|integer|min:1',
         'items.*.paper_size' => 'sometimes|string|max:255',
         'items.*.scale' => 'sometimes|string|in:fit,noscale,shrink',
@@ -56,12 +58,18 @@ class PrintJobController extends Controller
       ]);
 
       $printJob = DB::transaction(function () use ($request) {
+        $atleastOneNeedsEdit = array_any(
+          $request->items,
+          fn($item) =>
+          isset($item['needs_edit']) && $item['needs_edit'] == 'true'
+        );
+
 
         $job = PrintJob::create([
           'customer_name' => $request->customer_name,
           'customer_number' => $request->customer_number,
           'total_price' => 0,
-          'status' => 'pending_payment',
+          'status' =>  $atleastOneNeedsEdit ? 'request_edit' : 'pending_payment',
         ]);
 
         $runningTotal = 0;
@@ -70,6 +78,8 @@ class PrintJobController extends Controller
           $uploadedFile = $item['file'];
           $colorMode = $item['color'];
           $copies = $item['copies'] ?? 1;
+          $editNote = $item['edit_notes'] ?? null;
+          $needsEdit = $item['needs_edit'] == "true" ? true : false;
 
           $path = $uploadedFile->store('print_uploads', 'local');
 
@@ -186,12 +196,13 @@ class PrintJobController extends Controller
             'asset_id' => $asset->id,
             'print_color' => $dbColorMode,
             'price' => $totalItemPrice,
-            'status' => 'pending',
+            'status' => $needsEdit ? 'request_edit' : 'pending',
             'copies' => $copies,
+            'edit_notes' => $editNote ,
             'paper_size' => $item['paper_size'] ?? null,
             'scale' => $item['scale'] ?? null,
             'side' => $item['side'] ?? null,
-            'pages_to_print' => $item['pages'] ?? null,
+            'pages_to_print' => $item['pages_to_print'] ?? null,
             'monochrome_pages' => $monochromePages,
           ]);
 
@@ -450,5 +461,4 @@ class PrintJobController extends Controller
 
     return array_unique($pages);
   }
-
 }

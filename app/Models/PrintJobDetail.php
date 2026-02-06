@@ -29,6 +29,7 @@ class PrintJobDetail extends Model
     'priority',
     'attempts',
     'locked_at',
+    "edit_notes",
   ];
 
   protected $casts = [
@@ -66,6 +67,12 @@ class PrintJobDetail extends Model
       ->orderBy('created_at', 'asc');
   }
 
+  public function scopeNeedsEdit(Builder $query): void
+  {
+    $query->where('status', 'needs_edit')
+      ->orderBy('priority', 'desc')
+      ->orderBy('created_at', 'asc');
+  }
 
   /**
    * Update status and automatically create a log entry.

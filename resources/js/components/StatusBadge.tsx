@@ -12,6 +12,10 @@ const statusConfig: Record<
     label: 'Menunggu Pembayaran',
     className: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   },
+   request_edit: {
+  label: 'Request Edit',
+    className: 'bg-pink-100 text-pink-800 border-pink-300',
+  },
   pending: {
     label: 'Proses',
     className: 'bg-blue-100 text-blue-800 border-blue-300',

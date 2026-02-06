@@ -3,8 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\Configuration;
+use App\Models\PrinterDetail;
 use App\Models\User;
-
+use Illuminate\Support\Facades\DB;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,29 +16,39 @@ class DatabaseSeeder extends Seeder
    */
   public function run(): void
   {
-    Configuration::create([
-      'values' => [
-        'auto_dispatch' => true,
-        'prices' => [
-          'bnw' => 500,
-          'color' => 1000,
+    DB::transaction(function () {
+      Configuration::create([
+        'values' => [
+          'auto_dispatch' => true,
+          'prices' => [
+            'bnw' => 500,
+            'color' => 1000,
+          ],
+          'prinserv_endpoint' => "http://localhost:8080",
+          'prinkiosk_endpoint' => "http://localhost:8080",
+          'whatsappbot_endpoint' => "http://localhost:8080",
+          'temp_duration' => 60000,
+          'excluded_printers' => [
+            'Microsoft Print to PDF',
+            'OneNote for Windows 10',
+            'OneNote (Desktop)',
+          ],
         ],
-        'prinserv_endpoint' => "http://localhost:8080",
-        'prinkiosk_endpoint' => "http://localhost:8080",
-        'whatsappbot_endpoint' => "http://localhost:8080",
-        'temp_duration' => 60000,
-        'excluded_printers' => [
-          'Microsoft Print to PDF',
-          'OneNote for Windows 10',
-          'OneNote (Desktop)',
-        ],
-      ],
-      'primary' => true
-    ]);
+        'primary' => true
+      ]);
 
-    User::factory()->create([
-      'name' => 'Test User',
-      'email' => 'test@example.com',
-    ]);
+      PrinterDetail::create([
+        'name' => "EPSON L210 Series",
+        'paper_sizes' => [],
+        'paper_remaining' => 0,
+        'primary' => true,
+        'status' => 'offline'
+      ]);
+
+      User::factory()->create([
+        'name' => 'Test User',
+        'email' => 'test@example.com',
+      ]);
+    });
   }
 }

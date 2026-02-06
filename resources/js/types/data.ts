@@ -33,6 +33,7 @@ export interface PrintJob {
 
 export type PrintStatus =
   | 'pending_payment'
+  | 'request_edit'
   | 'pending'
   | 'queued'
   | 'running'
