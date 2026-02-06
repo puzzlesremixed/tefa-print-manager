@@ -38,7 +38,7 @@ export function DataTable<TData, TValue>({
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
+            <TableRow key={headerGroup.id } enableHover={false}> 
               {headerGroup.headers.map((header) => {
                 return (
                   <TableHead key={header.id} className={headerStyle}>
@@ -69,16 +69,16 @@ export function DataTable<TData, TValue>({
               </TableRow>
             ))
           ) : (
-            <TableRow>
+            <TableRow enableHover={false}>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                <div className="flex items-center justify-center">
+                <div className="flex items-center flex-col justify-center">
                   <img
                     src="/img/chill.png"
                     alt="No Data"
-                    className="h-50 w-35"
+                    className="h-50 w-35 dark:invert"
                   />
+                <span className='mb-4'>Tidak ada antrian yang tersisa</span>
                 </div>
-                Tidak ada antrian yang tersisa
               </TableCell>
             </TableRow>
           )}
