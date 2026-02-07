@@ -230,8 +230,7 @@ class PrintJobController extends Controller
 
   public function show(PrintJob $printJob, Request $request)
   {
-    $printJob->load('details');
-
+    $printJob->load('details.asset');
     if ($request->inertia()) {
       return Inertia::render(
         'print-job/print-detail',

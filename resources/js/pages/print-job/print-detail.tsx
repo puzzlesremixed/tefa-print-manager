@@ -1,5 +1,7 @@
 import { StatusBadge } from '@/components/StatusBadge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +11,7 @@ import { queue } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 import { PrintJob } from '@/types/data';
 import { Head } from '@inertiajs/react';
-import { CheckCircle2, Clock, CreditCard, FileText, Printer, History, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, CreditCard, FileText, Printer, History, AlertCircle, ArrowDownToLine } from 'lucide-react';
  
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -29,10 +31,8 @@ interface QueueProps {
 export default function PrintJobDetails({detail}:QueueProps) {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title={`Job - ${detail.customer_name}`} />
-
-      <div className="flex flex-col gap-6 p-6">
-        
+      <Head title="Details" />
+      <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -47,9 +47,9 @@ export default function PrintJobDetails({detail}:QueueProps) {
              </Badge>
              <StatusBadge status={detail.status}/>
           </div>
-        </div>
+          </div>
 
-        {/* Quick Stats Grid */}
+        {/* Quick Stats Gri */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -99,13 +99,11 @@ export default function PrintJobDetails({detail}:QueueProps) {
             <TabsTrigger value="logs">Activity Logs</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="files" className="mt-4">
-            <Card>
-              <CardHeader>
+          <TabsContent value="files" className="mt-4"><div className='mb-4'>
                 <CardTitle>Job Details</CardTitle>
-                <CardDescription>Configure and review individual file settings.</CardDescription>
-              </CardHeader>
-              <CardContent>
+                <CardDescription>Configure and review individual file settings.</CardDescription></div>
+            <Card className="p-0">
+              <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -113,7 +111,9 @@ export default function PrintJobDetails({detail}:QueueProps) {
                       <TableHead>Settings</TableHead>
                       <TableHead>Pages</TableHead>
                       <TableHead>Price</TableHead>
+                      <TableHead>Edit notes</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -121,7 +121,7 @@ export default function PrintJobDetails({detail}:QueueProps) {
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
-                            <span>{item.asset_id.split('-')[0]}</span>
+                            <span>{item.asset.basename}</span>
                             <span className="text-xs text-muted-foreground italic">ID: {item.id.split('-')[0]}</span>
                           </div>
                         </TableCell>
@@ -141,7 +141,13 @@ export default function PrintJobDetails({detail}:QueueProps) {
                         </TableCell>
                         <TableCell>Rp {item.price.toLocaleString()}</TableCell>
                         <TableCell>
+                           {item.edit_notes ?? <span className="text-xs text-muted-foreground">No edit notes</span>}
+                        </TableCell>
+                        <TableCell>
                            <StatusBadge status={detail.status}/>
+                        </TableCell>
+                        <TableCell>
+                           <Button variant={"secondary"}><ArrowDownToLine/></Button>
                         </TableCell>
                       </TableRow>
                     ))}

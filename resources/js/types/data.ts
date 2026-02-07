@@ -1,12 +1,14 @@
 export interface Asset {
   id: number;
   basename: string;
+  filename: string;
   pages: number;
 }
 
+
 export interface PrintJobDetail {
    id: string;
-  asset_id: string;
+  asset: Asset;
   paper_count: number | null;
   copies: number;
   paper_size: string | null;
@@ -25,8 +27,10 @@ interface PrintJobLog {
   id: string;
   detail_id: string;
   status: string;
+  
   message: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Printer {
