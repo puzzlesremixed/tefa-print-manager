@@ -1,13 +1,12 @@
 import {DataTable} from '@/components/data-table';
 import PrinterCount from '@/components/PrinterPageCount';
-import {StatusBadge} from '@/components/StatusBadge';
 import {Button} from '@/components/ui/button';
 
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import {basePrintJobColumns} from '@/types/column';
 import {Printer, PrintJob} from '@/types/data';
-import {Head, router, usePage, usePoll} from '@inertiajs/react';
+import {Head, router, usePoll} from '@inertiajs/react';
 import type {ColumnDef} from '@tanstack/react-table';
 import {HandCoins, ListStart, Plus} from 'lucide-react';
 import {cancelPrintJob, dispatchJob, simulatePayment} from "@/actions/App/Http/Controllers/PrintJobController";
@@ -21,24 +20,24 @@ interface QueueProps {
   printer: Printer;
 }
 
-function CancelCell({id}: { id: number }) {
+function CancelCell({id}: { id: string }) {
   return (
     <Button
       className="cursor-pointer"
       variant={'secondary'}
-      onClick={() => router.visit(cancelPrintJob(id.toString()))}
+      onClick={() => router.visit(cancelPrintJob(id.toString()), {preserveState: true})}
     >
       <Plus className="rotate-45"/>
     </Button>
   )
 }
 
-function SimulatePaymentCell({id}: { id: number }) {
+function SimulatePaymentCell({id}: { id: string }) {
   return (
     <Button
       className="cursor-pointer"
       variant={'secondary'}
-      onClick={() => router.visit(simulatePayment(id.toString()))}
+      onClick={() => router.visit(simulatePayment(id.toString()), {preserveState: true})}
     >
       <HandCoins className="rotate-45"/>
     </Button>
@@ -143,7 +142,7 @@ export default function Queue({
               Queued {queuedFiles.length > 0 && `(${queuedFiles.length})`}
             </TabsTrigger>
             <TabsTrigger value="pending">
-              Pending {pendingFiles.length > 0 && `(${pendingFiles.length})`} 
+              Pending {pendingFiles.length > 0 && `(${pendingFiles.length})`}
             </TabsTrigger>
             <TabsTrigger value="payment">
               Unpaid {waitingPaymentFiles.length > 0 && `(${waitingPaymentFiles.length})`}
