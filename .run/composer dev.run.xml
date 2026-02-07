@@ -1,7 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="composer dev" type="CompoundRunConfigurationType">
-    <toRun name="dev" type="js.build_tools.npm" />
-    <toRun name="Unnamed" type="PhpLocalRunConfigurationType" />
-    <method v="2" />
-  </configuration>
-</component>

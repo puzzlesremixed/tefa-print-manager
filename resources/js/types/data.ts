@@ -27,7 +27,7 @@ interface PrintJobLog {
   id: string;
   detail_id: string;
   status: string;
-  
+
   message: string | null;
   created_at: string;
   updated_at: string;
@@ -90,3 +90,34 @@ export const PrinterStatusMap : Record<string, string> = {
   'ready' : 'Ready',
   'busy' : 'Busy',
 }
+
+export interface ApiRequestLogProperties {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'
+  path: string
+  url: string
+  status: number
+  ip: string | null
+  duration: number
+  query: Record<string, string | string[]>
+  payload: Record<string, unknown>
+  route?: string | null
+}
+
+export interface ActivityLog<TProperties> {
+  id: number
+  log_name: string
+  description: string
+  causer_id: number | null
+  properties: TProperties
+  created_at: string
+}
+
+export interface LaravelPagination<T> {
+  data: T[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
+export type ApiRequestLog = ActivityLog<ApiRequestLogProperties>

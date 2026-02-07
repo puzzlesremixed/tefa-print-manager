@@ -5,6 +5,7 @@ use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\PrinterInfoController;
 use App\Http\Controllers\PrintJobController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LogController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -25,6 +26,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/queue', [QueueController::class, 'index'])->name('queue');
     Route::get('/history', [HistoryController::class, 'index'])->name('history');
+
+    Route::get('/logs', [LogController::class, 'index'])->name('logs');
+    Route::get('/logs/{activity}', [LogController::class, 'show'])->name('logs.detail');
 
     Route::get('print-job/{printJob}', [PrintJobController::class, 'show'])->name('printJob.detail');
 

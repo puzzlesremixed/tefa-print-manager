@@ -10,11 +10,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { config, dashboard, history, home, queue } from '@/routes';
+import { config, dashboard, history, home, logs, queue } from '@/routes';
 import type { NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import {
-  BookOpen,
+  ClipboardIcon,
   Folder,
   History,
   Hourglass,
@@ -43,6 +43,11 @@ const mainNavItems: NavItem[] = [
     title: 'Configuration',
     href: config(),
     icon: MonitorCog,
+  },
+  {
+    title: 'Api Request Logs',
+    href: logs(),
+    icon: ClipboardIcon,
   },
 ];
 
