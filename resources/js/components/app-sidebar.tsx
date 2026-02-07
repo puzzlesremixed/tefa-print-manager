@@ -14,7 +14,7 @@ import { config, dashboard, history, home, logs, queue } from '@/routes';
 import type { NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import {
-  ClipboardIcon,
+  ClipboardList,
   Folder,
   History,
   Hourglass,
@@ -45,9 +45,9 @@ const mainNavItems: NavItem[] = [
     icon: MonitorCog,
   },
   {
-    title: 'Api Request Logs',
+    title: 'API Request Logs',
     href: logs(),
-    icon: ClipboardIcon,
+    icon: ClipboardList,
   },
 ];
 

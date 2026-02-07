@@ -1,3 +1,4 @@
+import { JsonViewer } from '@/components/JsonViewer';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
@@ -25,60 +26,68 @@ export default function ApiLogShow({ log }: Props) {
   const p = log.properties;
 
   return (
-      <AppLayout breadcrumbs={breadcrumbs}>
+    <AppLayout breadcrumbs={breadcrumbs}>
       <Head title={'Log details'} />
-        <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-      <div className="space-y-4">
-        <h1 className="text-xl">API Log Detail</h1>
+      <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+        <div className="space-y-4">
+          <h1 className="text-xl">API Request</h1>
 
-        <Card>
-          <CardHeader className="flex flex-row gap-2">
-            <Badge>{p.method}</Badge>
-            <Badge variant={p.status >= 400 ? 'destructive' : 'secondary'}>
-              {p.status}
-            </Badge>
-          </CardHeader>
+          <Card>
+            <CardHeader className="flex flex-row gap-2">
+              <Badge>{p.method}</Badge>
+              <Badge variant={p.status >= 400 ? 'destructive' : 'secondary'}>
+                {p.status}
+              </Badge>
+            </CardHeader>
 
-          <CardContent className="space-y-4 text-sm">
-            <div>
-              <div className="text-muted-foreground">Path</div>
-              <div className="font-mono">{p.path}</div>
-            </div>
-
-            <div>
-              <div className="text-muted-foreground">URL</div>
-              <div className="font-mono break-all">{p.url}</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-4 text-sm">
               <div>
-                <div className="text-muted-foreground">IP</div>
-                <div>{p.ip ?? '-'}</div>
+                <div className="text-muted-foreground">Path</div>
+                <div className="font-mono">{p.path}</div>
               </div>
 
               <div>
-                <div className="text-muted-foreground">Duration</div>
-                <div>{p.duration} ms</div>
+                <div className="text-muted-foreground">URL</div>
+                <div className="font-mono break-all">{p.url}</div>
               </div>
-            </div>
 
-            <div>
-              <div className="mb-1 text-muted-foreground">Query</div>
-              <pre className="overflow-auto rounded bg-muted p-2 text-xs">
-                {JSON.stringify(p.query, null, 2)}
-              </pre>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-muted-foreground">IP</div>
+                  <div>{p.ip ?? '-'}</div>
+                </div>
 
-            <div>
-              <div className="mb-1 text-muted-foreground">Payload</div>
-              <pre className="overflow-auto rounded bg-muted p-2 text-xs">
-                {JSON.stringify(p.payload, null, 2)}
-              </pre>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <div>
+                  <div className="text-muted-foreground">Duration</div>
+                  <div>{p.duration} ms</div>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-muted-foreground">Query</div>
+                <JsonViewer value={p.request.query} />
+              </div>
+
+              <div>
+                <div className="mb-1 text-muted-foreground">Payload</div>
+                <JsonViewer value={p.request.payload} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {log.properties.response && (
+            <>
+              <h1 className="text-xl">API Response</h1>
+              <Card>
+                  <CardContent className="space-y-4 text-sm">
+                  <div className="mb-1 text-muted-foreground">Response</div>
+                  <JsonViewer value={p.response} />
+                  </CardContent>
+              </Card>
+            </>
+          )}
         </div>
+      </div>
     </AppLayout>
   );
 }

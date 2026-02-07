@@ -1,5 +1,7 @@
 <?php
 
+namespace App\Http\Middleware;
+
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -9,32 +11,40 @@ class LogApiRequests
 {
   public function handle(Request $request, Closure $next)
   {
-    $start = microtime(true);
-    $response = $next($request);
 
-    // Only log API responses
+    $request->attributes->set('api_log_start', microtime(true));
+    return $next($request);
+  }
+
+  /**
+   * Runs AFTER the response is sent
+   */
+  public function terminate(Request $request, Response $response): void
+  {
     if (! $request->is('api/*')) {
-      return $response;
+      return;
     }
-
+    $start = $request->attributes->get('api_log_start');
     $status = $response->getStatusCode();
 
-    // Only log failed responses (recommended)
-    if ($status < 400) {
-      return $response;
-    }
+    // Only log errors
+    // if ($status < 400) {
+    //   return;
+    // }
 
     $responseData = null;
 
     if ($response instanceof JsonResponse) {
       $data = $response->getData(true);
 
-      // Limit payload size
-      if (strlen(json_encode($data)) < 10_000) {
-        $responseData = $this->sanitize($data);
-      } else {
-        $responseData = '[response too large]';
-      }
+      $jsonSize = strlen(json_encode($data));
+
+
+      // $responseData = $jsonSize < 10_000
+      //   ? $this->sanitize($data)
+      //   : '[response too large]';
+
+      $responseData = $this->sanitize($data);
     }
 
     activity('api')
@@ -42,26 +52,30 @@ class LogApiRequests
       ->withProperties([
         'method'   => $request->method(),
         'path'     => $request->path(),
+        'url'      => $request->fullUrl(),
+        'ip'       => $request->ip(),
+        'user_id'  => optional($request->user())->id,
         'status'   => $status,
         'duration' => round((microtime(true) - $start) * 1000, 2),
         'request'  => [
           'query'   => $request->query(),
-          'payload' => $request->except(['password', 'password_confirmation']),
+          'payload' => $request->except([
+            'password',
+            'password_confirmation',
+          ]),
         ],
         'response' => $responseData,
       ])
       ->log('API request failed');
-
-    return $response;
   }
 
   protected function sanitize(array $data): array
   {
     return collect($data)->except([
+      'password',
       'token',
       'access_token',
       'refresh_token',
-      'password',
     ])->toArray();
   }
 }

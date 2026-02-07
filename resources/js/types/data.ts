@@ -92,15 +92,24 @@ export const PrinterStatusMap : Record<string, string> = {
 }
 
 export interface ApiRequestLogProperties {
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'
-  path: string
-  url: string
-  status: number
-  ip: string | null
-  duration: number
-  query: Record<string, string | string[]>
-  payload: Record<string, unknown>
-  route?: string | null
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS';
+  path: string;
+  url: string;
+  status: number;
+  ip: string | null;
+  duration: number;
+  request: {
+    query: Record<string, string | string[]>
+    payload: Record<string, unknown>
+  }
+  route?: string | null;
+  response?: ApiErrorResponse | string;
+}
+
+export interface ApiErrorResponse {
+  message?: string;
+  errors?: Record<string, string[]>;
+  [key: string]: unknown;
 }
 
 export interface ActivityLog<TProperties> {

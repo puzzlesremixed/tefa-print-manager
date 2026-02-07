@@ -130,6 +130,40 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(0.269 0 0);
     --sidebar-ring: oklch(0.439 0 0);
+
+
+
+}
+
+/* prims override */
+.dark .token.string {
+  color: #9cdcfe;
+  text-shadow: none;
+}
+
+.dark .token.number {
+  color: #b5cea8;
+  text-shadow: none;
+}
+
+.dark .token.boolean {
+  color: #569cd6;
+  text-shadow: none;
+}
+
+.dark .token.property {
+  color: #dcdcaa;
+  text-shadow: none;
+}
+
+.dark .token.operator {
+      text-shadow: none;
+}
+.dark .token.punctuation {
+      text-shadow: none;
+}
+.token.operator {
+    background: none!important;
 }
 
 @layer base {
