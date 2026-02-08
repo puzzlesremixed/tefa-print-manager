@@ -49,6 +49,7 @@ export interface PrintJob {
   customer_number: string;
   customer_name: string;
   total_price: number;
+  total_pages: number;
   paid_at: string | null;
   status: PrintStatus;
   created_at: string;

@@ -76,7 +76,7 @@ export default function PrintJobDetails({ detail }: QueueProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {detail.details.reduce((acc, curr) => acc + (curr.paper_count || 0), 0)} Pages
+                {detail.total_pages} Pages
               </div>
             </CardContent>
           </Card>
@@ -114,17 +114,14 @@ export default function PrintJobDetails({ detail }: QueueProps) {
                       <TableHead>Pages</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {detail.details.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex flex-col">
-                            <span>{item.asset.basename}</span>
-                            <span className="text-xs text-muted-foreground italic">ID: {item.id.split('-')[0]}</span>
-                          </div>
+                        <TableCell className="font-medium  overflow-hidden text-ellipsis max-w-48">
+                            <span className=''>{item.asset.filename}</span>
                         </TableCell>
                         <TableCell>
                           <span className="">.{item.asset.extension}</span>

@@ -21,6 +21,7 @@ class PrintJobDetail extends Model
     'price',
     'copies',
     'paper_size',
+    'paper_count',
     'scale',
     'side',
     'pages_to_print',
