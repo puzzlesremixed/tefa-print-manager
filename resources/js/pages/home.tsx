@@ -1,12 +1,8 @@
-import { updatePaperCount } from '@/actions/App/Http/Controllers/PrinterInfoController';
 import { DataTable } from '@/components/data-table';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Button } from '@/components/ui/button';
-import { cancelPrintJob, simulatePayment } from '@/routes/apiPrintJobs';
 import { Printer, PrintJob } from '@/types/data';
-import { router, usePoll } from '@inertiajs/react';
+import { usePoll } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { HandCoins, Plus } from 'lucide-react';
 
 interface QueueProps {
   allFiles: PrintJob[];
@@ -19,30 +15,6 @@ const censorNumber = (num: string) => {
   const lastThree = num.slice(-4);
   return `08 . . . ${lastThree}`;
 };
-
-function CancelCell({ id }: { id: number }) {
-  return (
-    <Button
-      className="cursor-pointer"
-      variant={'secondary'}
-      onClick={() => router.visit(cancelPrintJob(id.toString()))}
-    >
-      <Plus className="rotate-45" />
-    </Button>
-  );
-}
-
-function SimulatePaymentCell({ id }: { id: number }) {
-  return (
-    <Button
-      className="cursor-pointer"
-      variant={'secondary'}
-      onClick={() => router.visit(simulatePayment(id.toString()))}
-    >
-      <HandCoins className="rotate-45" />
-    </Button>
-  );
-}
 
 const Columns: ColumnDef<PrintJob>[] = [
   {
