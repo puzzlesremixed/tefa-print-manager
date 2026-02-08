@@ -162,6 +162,10 @@
 .dark .token.punctuation {
       text-shadow: none;
 }
+
+:not(pre) > code[class*="language-"], pre[class*="language-"]{
+    background: none!important;
+}
 .token.operator {
     background: none!important;
 }
