@@ -87,9 +87,12 @@ class PrintJobController extends Controller
 
           Log::info("Processing file: " . $uploadedFile->getClientOriginalName() . " | Initial Pages: " . $totalFilePages);
 
+          $originalName = $uploadedFile->getClientOriginalName();
+          $filenameWithoutExt = pathinfo($originalName, PATHINFO_FILENAME);
+          
           $asset = Asset::create([
-            'basename' => $uploadedFile->getClientOriginalName(),
-            'filename' => $uploadedFile->hashName(),
+            'basename' => $originalName,
+            'filename' => $filenameWithoutExt,
             'path' => $path,
             'extension' => $uploadedFile->extension(),
             'pages' => $totalFilePages,
@@ -198,7 +201,7 @@ class PrintJobController extends Controller
             'price' => $totalItemPrice,
             'status' => $needsEdit ? 'request_edit' : 'pending',
             'copies' => $copies,
-            'edit_notes' => $editNote ,
+            'edit_notes' => $editNote,
             'paper_size' => $item['paper_size'] ?? null,
             'scale' => $item['scale'] ?? null,
             'side' => $item['side'] ?? null,
