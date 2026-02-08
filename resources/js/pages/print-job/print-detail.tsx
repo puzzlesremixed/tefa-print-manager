@@ -11,8 +11,8 @@ import { queue } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 import { PrintJob } from '@/types/data';
 import { Head } from '@inertiajs/react';
-import { CheckCircle2, Clock, CreditCard, FileText, Printer, History, AlertCircle, ArrowDownToLine } from 'lucide-react';
- 
+import { CheckCircle2, Clock, CreditCard, FileText, Printer, History, AlertCircle, ArrowDownToLine, SquareArrowOutUpRightIcon } from 'lucide-react';
+
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -28,7 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface QueueProps {
   detail: PrintJob;
 }
-export default function PrintJobDetails({detail}:QueueProps) {
+export default function PrintJobDetails({ detail }: QueueProps) {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Details" />
@@ -36,18 +36,18 @@ export default function PrintJobDetails({detail}:QueueProps) {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{detail.customer_name}<span className="text-muted-foreground"> / +{detail.customer_number}</span></h1>
-            
+            <h1 className="text-2xl font-bold tracking-tight">{detail.customer_name}<span className="text-muted-foreground"> / +{detail.customer_number}<a href={`https://wa.me/${detail.customer_number}`} className="group ml-2" target='_blank'><SquareArrowOutUpRightIcon className='p-1 inline-block group-hover:text-white'/></a></span></h1>
+
             <p className="text-muted-foreground">Job ID: {detail.id}</p>
           </div>
           <div className="flex items-center gap-3">
-             <Badge variant={detail.paid_at ? "default" : "outline"} className="px-3 py-1">
-                {detail.paid_at ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
-                {detail.paid_at ? "Paid" : "Unpaid"}
-             </Badge>
-             <StatusBadge status={detail.status}/>
+            <Badge variant={detail.paid_at ? "default" : "outline"} className="px-3 py-1">
+              {detail.paid_at ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
+              {detail.paid_at ? "Paid" : "Unpaid"}
+            </Badge>
+            <StatusBadge status={detail.status} />
           </div>
-          </div>
+        </div>
 
         {/* Quick Stats Gri */}
         <div className="grid gap-4 md:grid-cols-4">
@@ -100,18 +100,19 @@ export default function PrintJobDetails({detail}:QueueProps) {
           </TabsList>
 
           <TabsContent value="files" className="mt-4"><div className='mb-4'>
-                <CardTitle>Job Details</CardTitle>
-                <CardDescription>Configure and review individual file settings.</CardDescription></div>
+            <CardTitle>Job Details</CardTitle>
+            <CardDescription>Configure and review individual file settings.</CardDescription></div>
             <Card className="p-0">
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Asset ID / File</TableHead>
-                      <TableHead>Settings</TableHead>
+                      <TableHead>Extension</TableHead>
+                      <TableHead>Copies</TableHead>
+                      <TableHead>Color</TableHead>
                       <TableHead>Pages</TableHead>
                       <TableHead>Price</TableHead>
-                      <TableHead>Edit notes</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -126,12 +127,13 @@ export default function PrintJobDetails({detail}:QueueProps) {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            <Badge className="text-[10px]">{item.print_color}</Badge>
-                            <Badge className="text-[10px]">{item.paper_size}</Badge>
-                            <Badge className="text-[10px]">{item.side}</Badge>
-                            <Badge className="text-[10px]">{item.copies}x Copies</Badge>
-                          </div>
+                          <span className="">.{item.asset.extension}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs text-muted-foreground">{item.copies}x</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs text-muted-foreground">{item.print_color}</span>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
@@ -141,13 +143,16 @@ export default function PrintJobDetails({detail}:QueueProps) {
                         </TableCell>
                         <TableCell>Rp {item.price.toLocaleString()}</TableCell>
                         <TableCell>
-                           {item.edit_notes ?? <span className="text-xs text-muted-foreground">No edit notes</span>}
+                          <StatusBadge status={item.status} />
                         </TableCell>
                         <TableCell>
-                           <StatusBadge status={detail.status}/>
-                        </TableCell>
-                        <TableCell>
-                           <Button variant={"secondary"}><ArrowDownToLine/></Button>
+                          <>
+                            <Button variant={"secondary"} className='p-0'>
+                              <a href={`/assets/${item.asset.id}/download`} download={true} className='p-3'>
+                                <ArrowDownToLine />
+                              </a>
+                            </Button>
+                          </>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -170,26 +175,26 @@ export default function PrintJobDetails({detail}:QueueProps) {
                   <div className="text-center py-10 text-muted-foreground">No logs recorded for this job.</div>
                 ) : (
                   <div className="relative space-y-4 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-                    {detail.details.flatMap(d => (d.logs || []).map(log => ({...log, detail_id_short: d.id.split('-')[0]})))
+                    {detail.details.flatMap(d => (d.logs || []).map(log => ({ ...log, detail_id_short: d.id.split('-')[0] })))
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .map((log) => (
-                      <div key={log.id} className="relative flex items-center gap-4 pl-10">
-                        <div className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border bg-background shadow-sm">
-                          <AlertCircle className={cn("h-4 w-4", log.status === 'failed' ? "text-destructive" : "text-muted-foreground")} />
-                        </div>
-                        <div className="flex flex-1 flex-col pb-4 border-b last:border-0">
-                          <div className="flex justify-between">
-                            <p className="text-sm font-semibold">
-                              Item {log.detail_id_short}: <span className="uppercase">{log.status}</span>
-                            </p>
-                            <time className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</time>
+                        <div key={log.id} className="relative flex items-center gap-4 pl-10">
+                          <div className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border bg-background shadow-sm">
+                            <AlertCircle className={cn("h-4 w-4", log.status === 'failed' ? "text-destructive" : "text-muted-foreground")} />
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {log.message || "No system message provided."}
-                          </p>
+                          <div className="flex flex-1 flex-col pb-4 border-b last:border-0">
+                            <div className="flex justify-between">
+                              <p className="text-sm font-semibold">
+                                Item {log.detail_id_short}: <span className="uppercase">{log.status}</span>
+                              </p>
+                              <time className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</time>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {log.message || "No system message provided."}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </CardContent>

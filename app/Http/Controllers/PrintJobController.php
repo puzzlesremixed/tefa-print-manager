@@ -89,7 +89,7 @@ class PrintJobController extends Controller
 
           $originalName = $uploadedFile->getClientOriginalName();
           $filenameWithoutExt = pathinfo($originalName, PATHINFO_FILENAME);
-          
+
           $asset = Asset::create([
             'basename' => $originalName,
             'filename' => $filenameWithoutExt,
@@ -234,7 +234,7 @@ class PrintJobController extends Controller
   public function show(PrintJob $printJob, Request $request)
   {
     $printJob->load('details.asset');
-    if ($request->inertia()) {
+    if ($request->inertia() | ! $request->is('api/*')) {
       return Inertia::render(
         'print-job/print-detail',
         ['detail' => $printJob]

@@ -12,8 +12,8 @@ const statusConfig: Record<
     label: 'Menunggu Pembayaran',
     className: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   },
-   request_edit: {
-  label: 'Request Edit',
+  request_edit: {
+    label: 'Request Edit',
     className: 'bg-pink-100 text-pink-800 border-pink-300',
   },
   pending: {
@@ -41,7 +41,7 @@ const statusConfig: Record<
     className: 'bg-red-100 text-red-800 border-red-300',
   },
   cancelled: {
-    label: 'DiBatalkan',
+    label: 'Dibatalkan',
     className: 'bg-gray-100 text-gray-700 border-gray-300',
   },
 }
