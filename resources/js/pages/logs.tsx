@@ -8,6 +8,8 @@ import { ApiRequestLog, LaravelPagination } from '@/types/data';
 import { Head, Link, usePoll } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircleIcon, AlertTriangleIcon, SquareArrowOutUpRight } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
   {
@@ -15,13 +17,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     href: logsRoute().url,
   },
 ];
-
-//  <TableHead>Method</TableHead>
-//                 <TableHead>Path</TableHead>
-//                 <TableHead>Status</TableHead>
-//                 <TableHead>Duration</TableHead>
-//                 <TableHead>Time</TableHead>
-
 
 export const apiLogColumns: ColumnDef<ApiRequestLog>[] = [
   {
@@ -88,7 +83,15 @@ export default function ApiLogIndex({
       <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
         <div className="space-y-4">
           <h1 className="text-xl">API Request Logs</h1>
-
+          <Alert className="mb-4">
+            <AlertCircleIcon />
+            <AlertTitle>Information</AlertTitle>
+            <AlertDescription>
+              <span>
+                Successful requests with GET and HEAD method won't get logged here.
+              </span>
+            </AlertDescription>
+          </Alert>
           <DataTable
             columns={apiLogColumns}
             data={logs.data}

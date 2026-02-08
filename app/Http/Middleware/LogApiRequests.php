@@ -24,13 +24,15 @@ class LogApiRequests
     if (! $request->is('api/*')) {
       return;
     }
+
+
     $start = $request->attributes->get('api_log_start');
     $status = $response->getStatusCode();
 
-    // Only log errors
-    // if ($status < 400) {
-    //   return;
-    // }
+    // If errors, and request method is either get/head
+    if ($status < 400 && ($request->method() == 'GET' | $request->method() == 'HEAD' | $request->method() == 'OPTIONS')) {
+        return;
+    }
 
     $responseData = null;
 
