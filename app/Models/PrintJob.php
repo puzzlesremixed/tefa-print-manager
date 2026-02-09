@@ -13,11 +13,12 @@ class PrintJob extends Model
   use HasUuids;
 
   protected $keyType = 'string';
-    public $incrementing = false;
+  public $incrementing = false;
   protected $fillable = [
     'customer_number',
     'customer_name',
     'total_price',
+    'total_pages',
     'status',
   ];
 
@@ -84,9 +85,11 @@ class PrintJob extends Model
     $total = $details->count();
     $queued = $details->whereIn('status', ['queued', 'pending'])->count();
     $printing = $details->where('status', 'printing')->count();
+    $request_edit = $details->where('status', 'request_edit')->count();
     $completed = $details->where('status', 'completed')->count();
     $failed = $details->where('status', 'failed')->count();
     $cancelled = $details->where('status', 'cancelled')->count();
+
 
     // If any item is currently printing, the job is running
     if ($printing > 0) {
@@ -115,6 +118,14 @@ class PrintJob extends Model
     if (($completed > 0 || $failed > 0) && $queued > 0) {
       if ($this->status !== 'running') {
         $this->update(['status' => 'running']);
+      }
+      return;
+    }
+
+    // If we don't have any file that requests an edit, goes to unpaid
+    if ($request_edit = 0) {
+      if ($this->status == 'request_edit') {
+        $this->update(['status' => 'pending_payment']);
       }
       return;
     }

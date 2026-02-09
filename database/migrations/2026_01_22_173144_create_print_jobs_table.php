@@ -16,6 +16,7 @@ return new class extends Migration
       $table->string('customer_number');
       $table->string('customer_name')->index();
       $table->integer('total_price');
+      $table->integer('total_pages');
       $table->timestamp('paid_at')->nullable();
 
       // aggregate state (if all details are done, this one is done)
@@ -40,13 +41,12 @@ return new class extends Migration
       $table->uuid('id')->primary();
       $table->foreignUuid('parent_id')->constrained('print_jobs')->onDelete('cascade');
       $table->foreignUuid('asset_id')->constrained('assets');
-      // TODO : get paper count from bot
-      $table->integer('paper_count')->nullable();
+      $table->integer('paper_count');
       $table->integer('copies')->default(1)->after('price');
       $table->string('paper_size')->nullable()->after('copies');
       $table->string('scale')->nullable()->after('paper_size'); // fit, noscale, shrink
       $table->string('side')->nullable()->after('scale'); // duplex, duplexshort, duplexlong, simplex
-      $table->string('pages_to_print')->nullable()->after('side'); // e.g. "1,3-5"
+      $table->string('pages_to_print')->nullable()->after('side');
       $table->string('monochrome_pages')->nullable()->after('pages_to_print'); // e.g. "1,3-5"
       $table->enum('print_color', ['color', 'bnw', 'full_color']);
       $table->integer('price');

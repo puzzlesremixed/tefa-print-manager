@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\QueueController;
+use App\Http\Controllers\AssetController;
 
 // Route::get('/', function () {
 //     return Inertia::render('home', [
@@ -37,6 +38,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/config', [ConfigurationController::class, 'store'])
         ->name('config.store');
     Route::get('/config/printers', [PrinterInfoController::class, 'index'])->name('printers.index');
+
+    Route::get('/assets/{asset}/download', [AssetController::class, 'download'])
+        ->name('assets.download');
 });
 
 require __DIR__ . '/settings.php';

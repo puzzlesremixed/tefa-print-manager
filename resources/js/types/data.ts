@@ -2,6 +2,7 @@ export interface Asset {
   id: number;
   basename: string;
   filename: string;
+  extension: string;
   pages: number;
 }
 
@@ -18,7 +19,7 @@ export interface PrintJobDetail {
   monochrome_pages: string | null;
   print_color: 'color' | 'bnw' | 'full_color';
   price: number;
-  status: 'pending' | 'queued' | 'printing' | 'completed' | 'failed' | 'cancelled' | 'request_edit';
+  status:PrintStatus;
   edit_notes: string | null;
   logs?: PrintJobLog[];
 }
@@ -26,7 +27,7 @@ export interface PrintJobDetail {
 interface PrintJobLog {
   id: string;
   detail_id: string;
-  status: string;
+  status: PrintStatus;
 
   message: string | null;
   created_at: string;
@@ -48,6 +49,7 @@ export interface PrintJob {
   customer_number: string;
   customer_name: string;
   total_price: number;
+  total_pages: number;
   paid_at: string | null;
   status: PrintStatus;
   created_at: string;

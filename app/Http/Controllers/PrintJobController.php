@@ -45,16 +45,20 @@ class PrintJobController extends Controller
       $request->validate([
         'customer_name' => 'required|string|max:255',
         'customer_number' => 'required|string|max:255',
+        'total_price' => 'required|integer|min:1',
+        'total_pages' => 'required|integer|min:1',
         'items' => 'required|array',
         'items.*.file' => 'required|file',
         'items.*.color' => ['required', 'string', $colorRule],
         'items.*.needs_edit' => 'nullable',
-        'items.*.edit_notes' => 'nullable|string',
-        'items.*.copies' => 'sometimes|integer|min:1',
+        'items.*.pages' => 'required',
+        'items.*.copies' => 'required|integer|min:1',
+        'items.*.price' => 'required|integer|min:1',
         'items.*.paper_size' => 'sometimes|string|max:255',
         'items.*.scale' => 'sometimes|string|in:fit,noscale,shrink',
         'items.*.side' => 'sometimes|string|in:duplex,duplexshort,duplexlong,simplex',
-        'items.*.pages' => ['sometimes', 'string', 'max:255', $pageRangeRule],
+        'items.*.pages_to_print' => ['sometimes', 'string', 'max:255', $pageRangeRule],
+        'items.*.edit_notes' => 'nullable|string',
       ]);
 
       $printJob = DB::transaction(function () use ($request) {
@@ -68,11 +72,10 @@ class PrintJobController extends Controller
         $job = PrintJob::create([
           'customer_name' => $request->customer_name,
           'customer_number' => $request->customer_number,
-          'total_price' => 0,
+          'total_price' => $request->total_price,
+          'total_pages' => $request->total_pages,
           'status' =>  $atleastOneNeedsEdit ? 'request_edit' : 'pending_payment',
         ]);
-
-        $runningTotal = 0;
 
         foreach ($request->items as $item) {
           $uploadedFile = $item['file'];
@@ -87,119 +90,30 @@ class PrintJobController extends Controller
 
           Log::info("Processing file: " . $uploadedFile->getClientOriginalName() . " | Initial Pages: " . $totalFilePages);
 
+          $originalName = $uploadedFile->getClientOriginalName();
+          $filenameWithoutExt = pathinfo($originalName, PATHINFO_FILENAME);
+
           $asset = Asset::create([
-            'basename' => $uploadedFile->getClientOriginalName(),
-            'filename' => $uploadedFile->hashName(),
+            'basename' => $originalName,
+            'filename' => $filenameWithoutExt,
             'path' => $path,
             'extension' => $uploadedFile->extension(),
             'pages' => $totalFilePages,
           ]);
-
-          $pagesToPrintString = $item['pages'] ?? null;
-
-          $effectivePages = [];
-          if ($pagesToPrintString) {
-            $requestedPages = $this->parsePageRanges($pagesToPrintString);
-            $effectivePages = array_filter($requestedPages, function ($p) use ($totalFilePages) {
-              return $p <= $totalFilePages;
-            });
-          } else {
-            $effectivePages = range(1, $totalFilePages);
-          }
-
-          $countToBill = count($effectivePages);
-
-          $numBnWPages = 0;
-          $numColorPages = 0;
+             
           $dbColorMode = $colorMode;
           $monochromePages = null;
-          $unitPrice = 0;
-
-          switch (strtolower($colorMode)) {
-            case 'color':
-              $apiResult = $this->detectColorsAndPrices($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
-
-              if (!$apiResult || empty($apiResult['colors'])) {
-                Log::warning("Color detection API failed or returned empty. Falling back to static configuration.");
-                $numColorPages = $countToBill;
-                $numBnWPages = 0;
-                $unitPrice = $numColorPages * GetConfigs::color();
-              } else {
-                $detectedTotalPages = $apiResult['total_pages'] ?? count($apiResult['colors']);
-
-                if ($detectedTotalPages > 0 && $detectedTotalPages != $totalFilePages) {
-                  $totalFilePages = $detectedTotalPages;
-                  $asset->update(['pages' => $totalFilePages]);
-
-                  if ($pagesToPrintString) {
-                    $requestedPages = $this->parsePageRanges($pagesToPrintString);
-                    $effectivePages = array_filter($requestedPages, function ($p) use ($totalFilePages) {
-                      return $p <= $totalFilePages;
-                    });
-                  } else {
-                    $effectivePages = range(1, $totalFilePages);
-                  }
-                  $countToBill = count($effectivePages);
-                }
-
-                foreach ($apiResult['colors'] as $pageData) {
-                  $pageNumber = $pageData['page'];
-
-                  if (in_array($pageNumber, $effectivePages)) {
-                    $unitPrice += $pageData['price'];
-
-                    if ($pageData['color'] === 'black_and_white') {
-                      $numBnWPages++;
-                    } else {
-                      $numColorPages++;
-                    }
-                  }
-                }
-              }
-
-              $dbColorMode = 'color';
-              break;
-
-            case 'bnw':
-              $numBnWPages = $countToBill;
-              $numColorPages = 0;
-              $dbColorMode = 'bnw';
-              $unitPrice = $numBnWPages * GetConfigs::bnw();
-              break;
-
-            default:
-              $monochromePages = $colorMode;
-              $bnwRanges = $this->parsePageRanges($colorMode);
-
-              $actualBnwPages = array_intersect($effectivePages, $bnwRanges);
-
-              $numBnWPages = count($actualBnwPages);
-              $numColorPages = $countToBill - $numBnWPages;
-
-              if ($numColorPages > 0) {
-                $dbColorMode = 'color';
-              } else {
-                $dbColorMode = 'bnw';
-              }
-
-              $unitPrice = ($numBnWPages * GetConfigs::bnw())
-                + ($numColorPages * GetConfigs::color());
-              break;
-          }
-
-          $totalItemPrice = $unitPrice * $copies;
-
-          $runningTotal += $totalItemPrice;
 
           $detail = PrintJobDetail::create([
             'parent_id' => $job->id,
             'asset_id' => $asset->id,
             'print_color' => $dbColorMode,
-            'price' => $totalItemPrice,
+            'price' => $item['price'],
             'status' => $needsEdit ? 'request_edit' : 'pending',
             'copies' => $copies,
-            'edit_notes' => $editNote ,
+            'edit_notes' => $editNote,
             'paper_size' => $item['paper_size'] ?? null,
+            'paper_count' => $item['pages'] ?? null,
             'scale' => $item['scale'] ?? null,
             'side' => $item['side'] ?? null,
             'pages_to_print' => $item['pages_to_print'] ?? null,
@@ -212,15 +126,12 @@ class PrintJobController extends Controller
           ]);
         }
 
-        $job->update(['total_price' => $runningTotal]);
-
         return $job;
       });
 
       return response()->json([
         'message' => 'Order created successfully',
         'order_id' => $printJob->id,
-        'total_price' => $printJob->total_price,
       ], 201);
     } catch (\Exception $e) {
       Log::error("Print Job Store Error: " . $e->getMessage());
@@ -231,7 +142,7 @@ class PrintJobController extends Controller
   public function show(PrintJob $printJob, Request $request)
   {
     $printJob->load('details.asset');
-    if ($request->inertia()) {
+    if ($request->inertia() | ! $request->is('api/*')) {
       return Inertia::render(
         'print-job/print-detail',
         ['detail' => $printJob]
