@@ -118,6 +118,16 @@ class PrinterInfoController extends Controller
 
     return redirect()->back();
   }
+  
+  public function reducePaperCount(Request $request)
+  {
+    $validated = $request->validate([
+      'count' => ['required', 'integer', 'min:0'],
+    ]);
+
+    PrinterDetail::reducePaperCount($validated['count']);
+    return redirect()->back();
+  }
 
 
   public function refreshAndFetchAll()

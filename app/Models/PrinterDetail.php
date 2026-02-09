@@ -27,6 +27,17 @@ class PrinterDetail extends Model
   {
     return self::all();
   }
+  
+  public static function reducePaperCount(int $count) : void
+  {
+    $printer =  self::getPrimary();
+    $papers = $printer->paper_remaining;
+    
+    $printer->update([
+      'paper_remaining' => $papers - $count,
+    ]);
+    return;
+  }
 
   public static function getPrimary()
   {
@@ -34,6 +45,17 @@ class PrinterDetail extends Model
     if ($printer) {
 
       return $printer;
+    } else {
+      return null;
+    }
+  }
+
+  public static function getPrimaryPaperCount()
+  {
+    $printer = self::where('primary', true)->first();
+    if ($printer) {
+
+      return $printer->paper_remaining;
     } else {
       return null;
     }

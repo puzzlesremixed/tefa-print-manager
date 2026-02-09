@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
+use App\Models\PrinterDetail;
 use App\Models\PrintJob;
 use App\Models\PrintJobDetail;
 use Exception;
@@ -258,11 +259,25 @@ class PrintJobController extends Controller
         ], 500);
       }
 
+      if (PrinterDetail::getPrimaryPaperCount()<$printJob->total_pages ) {
+        $msg = "The printer is currently low on paper.";
+        if ($req->inertia()) {
+          return back()->withErrors(['status' => $msg]);
+        }
+        return response()->json([
+          'error' => 'Dispatch failed',
+          'message' => $msg
+        ], 500);
+      }
+
+
       $printerService->processNextItem();
 
       if ($req->inertia()) {
         return back()->with('message', 'Print job started successfully!');
       }
+
+      PrinterDetail::reducePaperCount($printJob->total_pages);
 
       return response()->json([
         'message' => 'Job successfully queued',
