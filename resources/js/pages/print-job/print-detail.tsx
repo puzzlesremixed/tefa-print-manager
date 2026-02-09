@@ -3,15 +3,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { queue } from '@/routes';
+import assets from '@/routes/assets';
 import type { BreadcrumbItem } from '@/types';
 import { PrintJob } from '@/types/data';
-import { Head } from '@inertiajs/react';
-import { CheckCircle2, Clock, CreditCard, FileText, Printer, History, AlertCircle, ArrowDownToLine, SquareArrowOutUpRightIcon } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { CheckCircle2, Clock, CreditCard, FileText, Printer, History, AlertCircle, ArrowDownToLine, SquareArrowOutUpRightIcon, EllipsisVertical, ArrowUpToLine, ListTodo, Eye } from 'lucide-react';
 
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -36,7 +39,7 @@ export default function PrintJobDetails({ detail }: QueueProps) {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{detail.customer_name}<span className="text-muted-foreground"> / +{detail.customer_number}<a href={`https://wa.me/${detail.customer_number}`} className="group ml-2" target='_blank'><SquareArrowOutUpRightIcon className='p-1 inline-block group-hover:text-white'/></a></span></h1>
+            <h1 className="text-2xl font-bold tracking-tight">{detail.customer_name}<span className="text-muted-foreground"> / +{detail.customer_number}<a href={`https://wa.me/${detail.customer_number}`} className="group ml-2" target='_blank'><SquareArrowOutUpRightIcon className='p-1 inline-block group-hover:text-white' /></a></span></h1>
 
             <p className="text-muted-foreground">Job ID: {detail.id}</p>
           </div>
@@ -121,7 +124,7 @@ export default function PrintJobDetails({ detail }: QueueProps) {
                     {detail.details.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium  overflow-hidden text-ellipsis max-w-48">
-                            <span className=''>{item.asset.filename}</span>
+                          <span className=''>{item.asset.filename}</span>
                         </TableCell>
                         <TableCell>
                           <span className="">.{item.asset.extension}</span>
@@ -144,11 +147,57 @@ export default function PrintJobDetails({ detail }: QueueProps) {
                         </TableCell>
                         <TableCell>
                           <>
-                            <Button variant={"secondary"} className='p-0'>
-                              <a href={`/assets/${item.asset.id}/download`} download={true} className='p-3'>
-                                <ArrowDownToLine />
-                              </a>
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost">
+                                  <EllipsisVertical />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem disabled={item.status != 'request_edit'}>
+                                  <ArrowUpToLine /> Upload file
+                                </DropdownMenuItem>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={!item.edit_notes}>
+                                      <ListTodo /> View edit notes
+                                    </DropdownMenuItem>
+                                  </ DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Edit notes</DialogTitle>
+                                      <DialogDescription>
+                                        {item.edit_notes}
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                  </DialogContent>
+                                </Dialog>
+                               <Dialog>
+                                  <DialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} >
+                                      <Eye /> File preview
+                                    </DropdownMenuItem>
+                                  </ DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>File preview</DialogTitle>
+                                      <DialogDescription>
+                                        {item.edit_notes}
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                  </DialogContent>
+                                </Dialog>
+                                <DropdownMenuItem asChild>
+                                  <a href={
+                                    assets.download({
+                                      asset: item.asset.id.toString(),
+                                    }).url
+                                  }>
+                                    <ArrowDownToLine /> Download file
+                                  </a>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </>
                         </TableCell>
                       </TableRow>
