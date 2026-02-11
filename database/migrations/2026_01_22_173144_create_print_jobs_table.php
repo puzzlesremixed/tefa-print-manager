@@ -41,6 +41,7 @@ return new class extends Migration
       $table->uuid('id')->primary();
       $table->foreignUuid('parent_id')->constrained('print_jobs')->onDelete('cascade');
       $table->foreignUuid('asset_id')->constrained('assets');
+      $table->foreignUuid('modified_asset_id')->nullable();
       $table->integer('paper_count');
       $table->integer('copies')->default(1)->after('price');
       $table->string('paper_size')->nullable()->after('copies');
@@ -61,6 +62,8 @@ return new class extends Migration
       $table->timestamps();
 
       $table->index(['status', 'priority', 'created_at']);
+
+      $table->foreign('modified_asset_id')->references('id')->on('assets')->onDelete('cascade');
     });
 
     Schema::create('print_job_status_logs', function (Blueprint $table) {

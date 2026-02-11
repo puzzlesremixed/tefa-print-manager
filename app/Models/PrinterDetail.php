@@ -32,7 +32,6 @@ class PrinterDetail extends Model
   {
     $printer =  self::getPrimary();
     $papers = $printer->paper_remaining;
-    
     $printer->update([
       'paper_remaining' => $papers - $count,
     ]);

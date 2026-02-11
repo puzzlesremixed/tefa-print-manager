@@ -31,6 +31,7 @@ class PrintJobDetail extends Model
     'attempts',
     'locked_at',
     "edit_notes",
+    "modified_asset_id",
   ];
 
   protected $casts = [
@@ -45,6 +46,11 @@ class PrintJobDetail extends Model
   }
 
   public function asset(): BelongsTo
+  {
+    return $this->belongsTo(Asset::class);
+  }
+ 
+  public function modified_asset(): BelongsTo
   {
     return $this->belongsTo(Asset::class);
   }

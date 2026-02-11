@@ -1,6 +1,7 @@
 export interface Asset {
   id: number;
   basename: string;
+  path: string;
   filename: string;
   extension: string;
   pages: number;
@@ -10,6 +11,7 @@ export interface Asset {
 export interface PrintJobDetail {
    id: string;
   asset: Asset;
+  modified_asset: Asset;
   paper_count: number | null;
   copies: number;
   paper_size: string | null;

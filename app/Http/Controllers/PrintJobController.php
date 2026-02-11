@@ -101,7 +101,7 @@ class PrintJobController extends Controller
             'extension' => $uploadedFile->extension(),
             'pages' => $totalFilePages,
           ]);
-             
+            
           $dbColorMode = $colorMode;
           $monochromePages = null;
 
@@ -140,20 +140,6 @@ class PrintJobController extends Controller
     }
   }
 
-  public function show(PrintJob $printJob, Request $request)
-  {
-    $printJob->load('details.asset');
-    if ($request->inertia() | ! $request->is('api/*')) {
-      return Inertia::render(
-        'print-job/print-detail',
-        ['detail' => $printJob]
-      );
-    }
-
-    return response()->json([
-      'detail' => $printJob
-    ]);
-  }
 
   public function simulatePayment(PrintJob $printJob, Request $req)
   {

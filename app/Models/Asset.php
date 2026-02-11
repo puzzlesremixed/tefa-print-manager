@@ -28,8 +28,13 @@ class Asset extends Model
         return Storage::disk('local')->path($this->path);
     }
 
-    public function printJobDetails(): HasMany
+    // public function printJobDetails(): HasMany
+    // {
+    //     return $this->hasMany(PrintJobDetail::class);
+    // }
+
+    public function printJobDetails()
     {
-        return $this->hasMany(PrintJobDetail::class);
+        return $this->belongsTo(PrintJobDetail::class);
     }
 }

@@ -6,11 +6,13 @@ use App\Http\Controllers\PrinterInfoController;
 use App\Http\Controllers\PrintJobController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LogController;
+use App\Http\Controllers\EditRequestController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\QueueController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\PrintDetailController;
 
 // Route::get('/', function () {
 //     return Inertia::render('home', [
@@ -31,7 +33,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/logs', [LogController::class, 'index'])->name('logs');
     Route::get('/logs/{activity}', [LogController::class, 'show'])->name('logs.detail');
 
-    Route::get('print-job/{printJob}', [PrintJobController::class, 'show'])->name('printJob.detail');
+    Route::get('print-job/{printJob}', [PrintDetailController::class, 'show'])->name('printJob.detail');
 
     // Configurations
     Route::get('config', [ConfigurationController::class, 'index'])->name('config');
@@ -41,6 +43,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/assets/{asset}/download', [AssetController::class, 'download'])
         ->name('assets.download');
+
+    Route::post('/queue/details/{detail}/upload', [EditRequestController::class, 'upload'])->name('edit-request.upload');
 });
 
 require __DIR__ . '/settings.php';
