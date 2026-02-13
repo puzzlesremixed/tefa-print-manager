@@ -21,7 +21,7 @@ class ClearLogFile extends Command
   // Create your own custom command
   public function handle()
   {
-    exec('echo "" > ' . storage_path('logs/laravel.log'));
+    exec('echo ""web > ' . storage_path('logs/laravel.log'));
     $this->info('Logs have been cleared');
   }
 
