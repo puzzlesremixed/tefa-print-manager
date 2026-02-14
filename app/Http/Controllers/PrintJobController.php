@@ -306,26 +306,6 @@ class PrintJobController extends Controller
     }
   }
 
-  private function detectColorsAndPrices($filePath, $originalName)
-  {
-    try {
-      $response = Http::timeout(30)
-        ->attach('files', file_get_contents($filePath), $originalName)
-        ->post('http://localhost:5000/detect');
-
-      if ($response->successful()) {
-        $json = $response->json();
-        if (isset($json['data']) && count($json['data']) > 0) {
-          return $json['data'][0];
-        }
-      }
-      return null;
-    } catch (\Exception $e) {
-      Log::error("Detect Colors failed: " . $e->getMessage());
-      return null;
-    }
-  }
-
   private function countPages($filePath, $originalName): int
   {
     try {

@@ -76,7 +76,7 @@ class PrintJob extends Model
   public function updateAggregatedStatus(): void
   {
     $this->load('details');
-    $details = $this->details;
+    $details = $this->details()->get();
 
     if ($details->isEmpty()) {
       return;
@@ -123,11 +123,12 @@ class PrintJob extends Model
     }
 
     // If we don't have any file that requests an edit, goes to unpaid
-    if ($request_edit = 0) {
+    if ($request_edit == 0) {
       if ($this->status == 'request_edit') {
         $this->update(['status' => 'pending_payment']);
       }
       return;
     }
+
   }
 }

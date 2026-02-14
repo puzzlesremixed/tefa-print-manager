@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ApiConfigurationController;
+use App\Http\Controllers\EditRequestController;
 use App\Http\Controllers\PrintJobController;
 use App\Http\Controllers\PrinterController;
 use App\Http\Controllers\PrinterInfoController;
@@ -34,9 +35,14 @@ Route::post('/printers/{id}/primary', [PrinterInfoController::class, 'setPrimary
 Route::post('/printers/sync', [PrinterInfoController::class, 'syncPrinters'])->name('printers.sync');
 Route::post('/printers/{id}/paper', [PrinterInfoController::class, 'updatePaperCount']);
 
+// Exclude printers
 Route::post('/config/printers/exclude/add', [PrinterInfoController::class, 'addPrinterExclusion'])->name('printers.exclude.add');
 Route::post('/config/printers/exclude/remove/{printer_name}', [PrinterInfoController::class, 'deletePrinterExclusion'])->name('printers.exclude.remove');
 
 // Webhook for status
 Route::post('/printer/webhook', [PrinterWebhookController::class, 'handle'])
     ->name('apiPrinter.webhook');
+
+// Mark a edit request as done
+Route::post('/pricing-preview', [EditRequestController::class, 'getPricing'])
+  ->name('pricing.preview');
