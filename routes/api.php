@@ -9,7 +9,7 @@ use App\Http\Controllers\PrinterWebhookController;
 use Illuminate\Support\Facades\Route;
 
 // Config
-Route::get('/config', [ApiConfigurationController::class, 'index'])->name('api.config');
+Route::get('/config/pricing', [ApiConfigurationController::class, 'pricing'])->name('api.config.pricing');
 
 // Create a New Order
 Route::post('/print-job/create', [PrintJobController::class, 'store'])->name('apiPrintJobs.store');
