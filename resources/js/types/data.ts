@@ -78,6 +78,7 @@ export interface ConfigValue {
 
   prices: Prices
   prinserv_endpoint: string
+  colorserv_endpoint: string
   mobilekiosk_endpoint: string
   whatsappbot_endpoint: string
   temp_duration: number
@@ -87,6 +88,7 @@ export interface ConfigValue {
 export interface Prices {
   bnw: number
   color: number
+  full_color: number
 }
 
 export const PrinterStatusMap : Record<string, string> = {

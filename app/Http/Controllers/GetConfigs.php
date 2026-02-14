@@ -15,11 +15,18 @@ class GetConfigs
   {
     return Configuration::configs('prices.color');
   }
-
-
+  public static function full_color(): int
+  {
+    return Configuration::configs('prices.full_color');
+  }
   public static function printServEnpoint()
   {
     return Configuration::configs('prinserv_endpoint');
+  }
+
+  public static function colorServEndpoint()
+  {
+    return Configuration::configs('colorserv_endpoint');
   }
   public static function excludedPrinters()
   {

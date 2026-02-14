@@ -39,27 +39,31 @@ interface ConfigProps {
 type FormType = {
   prices: Prices;
   prinserv_endpoint: string;
+  colorserv_endpoint: string;
   mobilekiosk_endpoint: string;
   whatsappbot_endpoint: string;
   temp_duration: number;
   delete_files: boolean;
 };
 
-  type Prices = {
-    bnw: number;
-    color: number;
-  };
+type Prices = {
+  bnw: number;
+  color: number;
+  full_color: number;
+};
 
-export default function Config({ primaryPrinter, configuration }: ConfigProps) {
+export default function Config({primaryPrinter, configuration}: ConfigProps) {
   const form = useForm<FormType>({
     defaultValues: {
       prices: {
         bnw: configuration?.prices?.bnw ?? 500,
-        color: configuration?.prices?.color ?? 1500,
+        color: configuration?.prices?.color ?? 1000,
+        full_color: configuration?.prices?.full_color ?? 1500,
       },
       temp_duration: configuration?.temp_duration ?? 86400000,
       delete_files: configuration?.delete_files ?? false,
       prinserv_endpoint: configuration?.prinserv_endpoint ?? '',
+      colorserv_endpoint: configuration?.colorserv_endpoint ?? '',
       mobilekiosk_endpoint: configuration?.mobilekiosk_endpoint ?? '',
       whatsappbot_endpoint: configuration?.whatsappbot_endpoint ?? '',
     },
@@ -74,7 +78,7 @@ export default function Config({ primaryPrinter, configuration }: ConfigProps) {
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Configuration" />
+      <Head title="Configuration"/>
       <div
         className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
       >
@@ -82,11 +86,11 @@ export default function Config({ primaryPrinter, configuration }: ConfigProps) {
           <div className="w-full text-left lg:w-[40%] lg:text-right">
             <h2 className="mb-2 text-2xl">Printer Settings</h2>
             <Link href={printers.index()} className="hover:underline">
-              More printers <ChevronRight className="inline-block h-4 w-4" />
+              More printers <ChevronRight className="inline-block h-4 w-4"/>
             </Link>
           </div>
           <div className="w-full">
-                 {primaryPrinter?.name ? (
+            {primaryPrinter?.name ? (
               <Card className="">
                 <CardContent className="flex flex-col items-start justify-between gap-2 lg:flex-row">
                   <div>
@@ -117,54 +121,56 @@ export default function Config({ primaryPrinter, configuration }: ConfigProps) {
             )}
           </div>
         </section>
-        <hr />
+        <hr/>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-        <section className="flex flex-col gap-8 lg:flex-row">
-          <div className="w-full text-left lg:w-[40%] lg:text-right">
-            <h2 className="mb-2 text-2xl">Store Settings</h2>
-          </div>
-          <div className="w-full ">
-            <FieldGroup>
-              <StoreSettings form={form} />
-              <FieldSeparator />
-
+          <section className="flex flex-col gap-8 lg:flex-row">
+            <div className="w-full text-left lg:w-[40%] lg:text-right">
+              <h2 className="mb-2 text-2xl">Store Settings</h2>
+            </div>
+            <div className="w-full ">
               <FieldGroup>
-                <FieldSet>
-                  <FieldLegend>Schedule</FieldLegend>
-                  <FieldDescription>
-                    Operational schedule. System will not acecpt user print
-                    request outside of these hours.
-                  </FieldDescription>
-                </FieldSet>
+                <StoreSettings form={form}/>
+                <FieldSeparator/>
+
+                <FieldGroup className={"relative"}>
+                  <div className="absolute inset-0 bg-gray-400 opacity-20"></div>
+
+                  <FieldSet>
+                    <FieldLegend>Schedule</FieldLegend>
+                    <FieldDescription>
+                      Operational schedule. System will not acecpt user print
+                      request outside of these hours.
+                    </FieldDescription>
+                  </FieldSet>
+                </FieldGroup>
               </FieldGroup>
-            </FieldGroup>
+            </div>
+          </section>
+          <Separator className='my-4'/>
+          <section className="flex flex-col gap-8 lg:flex-row">
+            <div className="w-full text-left lg:w-[40%] lg:text-right">
+              <h2 className="mb-2 text-2xl">Print Manager Settings</h2>
+            </div>
+            <div className="w-full">
+              <PrinManSettings form={form}/>
+            </div>
+          </section>
+          <div className="flex">
+            {' '}
+            <Field orientation={'horizontal'} className="justify-end">
+              <Button variant="outline" type="button">
+                Cancel
+              </Button>
+              <Button type="submit">Submit</Button>
+            </Field>
           </div>
-        </section>
-        <Separator className='my-4'/>
-        <section className="flex flex-col gap-8 lg:flex-row">
-          <div className="w-full text-left lg:w-[40%] lg:text-right">
-            <h2 className="mb-2 text-2xl">Print Manager Settings</h2>
-          </div>
-          <div className="w-full">
-            <PrinManSettings form={form} />
-          </div>
-        </section>
-        <div className="flex">
-          {' '}
-          <Field orientation={'horizontal'} className="justify-end">
-            <Button variant="outline" type="button">
-              Cancel
-            </Button>
-            <Button type="submit">Submit</Button>
-          </Field>
-        </div>
         </form>
       </div>
     </AppLayout>
   );
 }
 
-function StoreSettings({ form }: { form: UseFormReturn<FormType> }) {
+function StoreSettings({form}: { form: UseFormReturn<FormType> }) {
   return (
     <FieldGroup>
       <FieldSet>
@@ -180,27 +186,35 @@ function StoreSettings({ form }: { form: UseFormReturn<FormType> }) {
             <Input
               placeholder="500"
               required
-              {...form.register('prices.bnw', { valueAsNumber: true })}
+              {...form.register('prices.bnw', {valueAsNumber: true})}
             />
           </Field>
           <Field>
             <FieldLabel>Color</FieldLabel>
             <Input
-              placeholder="1500"
+              placeholder="1000"
               required
-              {...form.register('prices.color', { valueAsNumber: true })}
+              {...form.register('prices.color', {valueAsNumber: true})}
             />
           </Field>
+          <Field>
+          <FieldLabel>Full Color</FieldLabel>
+          <Input
+            placeholder="1500"
+            required
+            {...form.register('prices.full_color', {valueAsNumber: true})}
+          />
+        </Field>
         </div>
       </FieldSet>
     </FieldGroup>
   );
 }
 
-function PrinManSettings({ form }: { form: UseFormReturn<FormType> }) {
+function PrinManSettings({form}: { form: UseFormReturn<FormType> }) {
   return (
     <>
-      <FieldGroup >
+      <FieldGroup>
         <FieldSet>
           <FieldLegend>Endpoints</FieldLegend>
           <FieldDescription>
@@ -227,7 +241,16 @@ function PrinManSettings({ form }: { form: UseFormReturn<FormType> }) {
               {...form.register('prinserv_endpoint')}
             />
           </Field>
-        </FieldSet>
+        </FieldSet><FieldSet>
+        <Field>
+          <FieldLabel>Color Detection Server</FieldLabel>
+          <Input
+            placeholder="/"
+            required
+            {...form.register('colorserv_endpoint')}
+          />
+        </Field>
+      </FieldSet>
         <FieldSet>
           <Field>
             <FieldLabel>Mobile Kiosk</FieldLabel>
@@ -240,9 +263,10 @@ function PrinManSettings({ form }: { form: UseFormReturn<FormType> }) {
         </FieldSet>
       </FieldGroup>
 
-      <FieldSeparator className="my-2" />
+      <FieldSeparator className="my-2"/>
 
-      <FieldGroup className={''}>
+      <FieldGroup className={'relative mb-4'}>
+        <div className="absolute inset-0 bg-gray-400 opacity-20"></div>
         <FieldSet className={'text-nowrap'}>
           {/* TODO : implement files cleanup */}
           <FieldLegend>Temporary Files Cleanup</FieldLegend>

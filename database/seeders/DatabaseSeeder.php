@@ -23,9 +23,11 @@ class DatabaseSeeder extends Seeder
           'prices' => [
             'bnw' => 500,
             'color' => 1000,
+            'full_color' => 1500,
           ],
           'prinserv_endpoint' => "http://localhost:8080",
           'prinkiosk_endpoint' => "http://localhost:8080",
+          'colorserv_endpoint' => "http://localhost:5000/detect",
           'whatsappbot_endpoint' => "http://localhost:8080",
           'temp_duration' => 60000,
           'excluded_printers' => [
