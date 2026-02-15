@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Http\Controllers\GetConfigs;
+use App\Models\PrinterDetail;
 use App\Models\PrintJobDetail;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -49,63 +50,62 @@ class PrinterService
       $webhookUrl = route('apiPrinter.webhook');
       $filePath = $detail->asset->full_path;
 
-            Log::info('Filepath' . $filePath);
+      Log::info('Filepath' . $filePath);
 
-            if (!file_exists($filePath)) {
-                throw new \Exception("File not found at path: {$filePath}");
-            }
+      if (!file_exists($filePath)) {
+        throw new \Exception("File not found at path: {$filePath}");
+      }
 
-            $payload = [
-                'job_detail_id' => $detail->id,
-                'webhook_url' => $webhookUrl,
-                'copies' => $detail->copies,
-                // TODO : change from config
-            ];
+      $payload = [
+        'job_detail_id' => $detail->id,
+        'webhook_url' => $webhookUrl,
+        'copies' => $detail->copies,
+        'printer' => PrinterDetail::getPrimary()->name,
+      ];
 
-            if ($detail->monochrome_pages) {
-                $payload['monorange'] = $detail->monochrome_pages;
-            } else {
-                $payload['monochrome'] = $detail->print_color === 'bnw';
-            }
+      if ($detail->monochrome_pages) {
+        $payload['monorange'] = $detail->monochrome_pages;
+      } else {
+        $payload['monochrome'] = $detail->print_color === 'bnw';
+      }
 
-             if ($detail->copies) {
-                $payload['copies'] = $detail->copies;
-            }
+      if ($detail->copies) {
+        $payload['copies'] = $detail->copies;
+      }
 
-            if ($detail->paper_size) {
-                $payload['paperSize'] = $detail->paper_size;
-            }
-            if ($detail->scale) {
-                $payload['scale'] = $detail->scale;
-            }
-            if ($detail->side) {
-                $payload['side'] = $detail->side;
-            }
-            if ($detail->pages_to_print) {
-                $payload['pages'] = $detail->pages_to_print;
-            }
+      if ($detail->paper_size) {
+        $payload['paperSize'] = $detail->paper_size;
+      }
+      if ($detail->scale) {
+        $payload['scale'] = $detail->scale;
+      }
+      if ($detail->side) {
+        $payload['side'] = $detail->side;
+      }
+      if ($detail->pages_to_print) {
+        $payload['pages'] = $detail->pages_to_print;
+      }
 
-            $response = Http::asMultipart()
-                ->attach(
-                    'files',
-                    file_get_contents($filePath),
-                    $detail->asset->basename
-                )
-                ->post($printerApiUrl, $payload);
+      $response = Http::asMultipart()
+        ->attach(
+          'files',
+          file_get_contents($filePath),
+          $detail->asset->basename
+        )
+        ->post($printerApiUrl, $payload);
 
-            if ($response->successful()) {
-                Log::info("Job {$detail->id} sent to spooler.");
-            } else {
-                $errorMessage = 'Print Server rejected request: ' . $response->status();
-                if ($response->json('message')) {
-                    $errorMessage .= ' - ' . $response->json('message');
-                }
+      if ($response->successful()) {
+        Log::info("Job {$detail->id} sent to spooler.");
+      } else {
+        $errorMessage = 'Print Server rejected request: ' . $response->status();
+        if ($response->json('message')) {
+          $errorMessage .= ' - ' . $response->json('message');
+        }
 
         $detail->setStatus('failed', $errorMessage);
         $detail->job->updateAggregatedStatus();
         $this->processNextItem();
       }
-
     } catch (\Exception $e) {
       $detail->setStatus('failed', 'Connection to Print Server failed: ' . $e->getMessage());
       $detail->job->updateAggregatedStatus();
