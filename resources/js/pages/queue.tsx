@@ -1,17 +1,16 @@
-import {DataTable} from '@/components/data-table';
-import PrinterCount from '@/components/PrinterPageCount';
-import {Button} from '@/components/ui/button';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import AppLayout from '@/layouts/app-layout';
-import {basePrintJobColumns} from '@/types/column';
-import {Printer, PrintJob} from '@/types/data';
 import {Head, router, usePoll} from '@inertiajs/react';
 import type {ColumnDef} from '@tanstack/react-table';
 import {HandCoins, ListStart, Plus, Wallet} from 'lucide-react';
-import {cancelPrintJob, dispatchJob, simulatePayment} from "@/actions/App/Http/Controllers/PrintJobController";
 import {useState} from 'react';
-// Import langsung, bukan dari index
+import {cancelPrintJob, dispatchJob, simulatePayment} from "@/actions/App/Http/Controllers/PrintJobController";
+import {DataTable} from '@/components/data-table';
+import PrinterCount from '@/components/PrinterPageCount';
+import {Button} from '@/components/ui/button';
 import SimulateChangeModal from '@/components/ui/simulate-change-modal';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import AppLayout from '@/layouts/app-layout';
+import {basePrintJobColumns} from '@/types/column';
+import type {Printer, PrintJob} from '@/types/data';
 
 interface QueueProps {
   queuedFiles: PrintJob[];

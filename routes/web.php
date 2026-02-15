@@ -42,8 +42,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     ->name('config.store');
   Route::get('/config/printers', [PrinterInfoController::class, 'index'])->name('printers.index');
 
-  Route::get('/assets/{asset}/download', [AssetController::class, 'download'])
-    ->name('assets.download');
+  Route::get('/assets/{asset}/download', [AssetController::class, 'download'])->name('assets.download');
 
   Route::post('/queue/details/{detail}/upload', [EditRequestController::class, 'upload'])->name('edit-request.upload');
 });
