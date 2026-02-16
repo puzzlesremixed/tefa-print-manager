@@ -71,6 +71,6 @@ class ConfigurationController extends Controller
 
     Cache::forget('configs');
 
-    return redirect()->back()->with('success', 'Configuration updated');
+    return redirect()->back()->with('success', 'Configuration updated.');
   }
 }

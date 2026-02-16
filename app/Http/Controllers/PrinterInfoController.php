@@ -64,7 +64,7 @@ class PrinterInfoController extends Controller
 
     Cache::forget('configs');
 
-    return redirect()->back()->with('success', 'Printer excluded successfully');
+    return redirect()->back()->with('success', 'Printer excluded successfully.');
   }
 
 
@@ -96,7 +96,7 @@ class PrinterInfoController extends Controller
 
     Cache::forget('configs');
 
-    return redirect()->back()->with('success', 'Printer exclusion removed');
+    return redirect()->back()->with('success', 'Printer exclusion removed.');
   }
 
   public function setPrimary(string $id)
@@ -116,7 +116,7 @@ class PrinterInfoController extends Controller
       'paper_remaining' => $validated['paper_remaining'],
     ]);
 
-    return redirect()->back();
+    return redirect()->back()->with('success', 'Paper count updated.');
   }
   
   public function reducePaperCount(Request $request)
@@ -126,7 +126,7 @@ class PrinterInfoController extends Controller
     ]);
 
     PrinterDetail::reducePaperCount($validated['count']);
-    return redirect()->back();
+    return redirect()->back()->with('success', 'Paper count updated.');
   }
 
 
@@ -140,6 +140,6 @@ class PrinterInfoController extends Controller
   public function syncPrinters()
   {
     PrinterDetail::syncFromEndpoint();
-    return back()->with('success', 'Printers synced successfully from PrinServ endpoint.');
+    return back()->with('success', 'Printers synced successfully from Printer Server endpoint.');
   }
 }

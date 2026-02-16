@@ -28,27 +28,11 @@ class EditRequestController extends Controller
       return back()->with('error', 'An error occurred while updating the job: ' . $e->getMessage());
     }
 
-    return redirect()->back()->with('success', 'File uploaded and job updated successfully.');
+    return redirect()->back()->with('success', 'Print job status updated.');
   }
 
   public function upload(Request $request, PrintJobDetail $detail)
   {
-    $pageRangeRule = function ($attribute, $value, $fail) {
-      if (!$value) return;
-      foreach (explode(',', $value) as $part) {
-        $part = trim($part);
-        if (!preg_match('/^[1-9]\d*(-[1-9]\d*)?$/', $part)) {
-          return $fail($attribute . ' contains an invalid format.');
-        }
-        if (str_contains($part, '-')) {
-          list($start, $end) = explode('-', $part);
-          if (intval($start) >= intval($end)) {
-            return $fail($attribute . ' has an invalid range.');
-          }
-        }
-      }
-    };
-
     $validated = $request->validate([
       'file' => ['required', 'file'],
       'print_color' => ['required', 'in:bnw,color'],
@@ -122,7 +106,7 @@ class EditRequestController extends Controller
       return back()->with('error', 'An error occurred while updating the job: ' . $e->getMessage());
     }
 
-    return redirect()->back()->with('success', 'File uploaded and job updated successfully.');
+    return redirect()->back()->with('success', 'File uploaded.');
   }
 
   // calculate price based on the parameter like color and copies

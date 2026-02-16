@@ -1,15 +1,13 @@
-import { PencilIcon, RefreshCcwDot, Square, Triangle, X } from 'lucide-react';
-import React, { useState } from 'react'
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { PrinterStatusMap, type Printer, type PrintJob } from '@/types/data';
 import { router } from '@inertiajs/react';
-import { refresh } from "@/routes/printjobs";
+import { PencilIcon, RefreshCcwDot, Square, Triangle} from 'lucide-react';
+import React, { useState } from 'react'
 import { updatePaperCount } from '@/actions/App/Http/Controllers/PrinterInfoController';
-import { Table, TableBody, TableCaption, TableCell, TableRow } from './ui/table';
-import printers from '@/routes/printers';
-import { Field } from './ui/field';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { refresh } from '@/routes/printJob';
+import { PrinterStatusMap, type Printer, type PrintJob } from '@/types/data';
 import { Input } from './ui/input';
+import { Table, TableBody, TableCell, TableRow } from './ui/table';
 
 interface props {
   printer?: Printer;
@@ -81,8 +79,8 @@ const PrinterCount = ({ printer, runningFiles }: props) => {
                           <PencilIcon className="h-2 w-2" />
                         </Button>
                         <div className="flex gap-2">
-                          {addPages.map((number) => (
-                            <Button size={"sm"} className='cursor-pointer' variant={"secondary"}
+                          {addPages.map((number, i) => (
+                            <Button size={"sm"} className='cursor-pointer' variant={"secondary"} key={i}
                               onClick={() => router.post(updatePaperCount(printer.id), { "paper_remaining": printer.paper_remaining + number })}>
                               +{number}
                             </Button>))}

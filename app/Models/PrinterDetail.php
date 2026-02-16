@@ -98,7 +98,7 @@ class PrinterDetail extends Model
     $response = Http::get(url(GetConfigs::printServEnpoint() . '/printers'));
 
     if (!$response->successful()) {
-      return back()->with('error', 'Failed to sync printers from PrinServ endpoint.');
+      return back()->with('error', 'Failed to sync printers from Printer Server endpoint.');
     }
     $printers = $response->json('printers', []);
 

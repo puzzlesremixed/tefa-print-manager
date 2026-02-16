@@ -1,9 +1,9 @@
-import { Toaster } from '@/components/ui/sonner';
-import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
-import type { AppLayoutProps } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
+import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import type { AppLayoutProps } from '@/types';
 
 export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
   const { messages, errors } = usePage().props;
@@ -21,7 +21,6 @@ export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
         toast.info(messages.info);
         shownRef.current = true;
       } else if (messages.warning) {
-        console.log(messages.warning);
         toast.warning(messages.warning);
         shownRef.current = true;
       } else if (Object.keys(errors).length > 0) {

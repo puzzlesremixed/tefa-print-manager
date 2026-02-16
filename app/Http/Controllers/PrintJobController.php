@@ -152,7 +152,7 @@ class PrintJobController extends Controller
         ], 400);
       }
 
-      return back()->with('message', 'This order is not awaiting payment.');
+      return back()->with('error', 'This order is not awaiting payment.');
     }
 
     try {
@@ -171,7 +171,7 @@ class PrintJobController extends Controller
       });
 
       if ($req->inertia()) {
-        return back()->with('message', 'Order marked as paid.');
+        return back()->with('success', 'Order marked as paid.');
       }
 
       return response()->json([
@@ -191,7 +191,7 @@ class PrintJobController extends Controller
     if ($printJob->status == 'failed' || $printJob->status == 'completed' || $printJob->status == 'partially_failed') {
 
       if ($req->inertia()) {
-        return back()->with('message', 'You cannot cancel this print job.');
+        return back()->with('error', 'You cannot cancel this print job.');
       }
       return response()->json([
         'error' => 'Invalid Request',
@@ -220,7 +220,7 @@ class PrintJobController extends Controller
         ]);
       }
 
-      return back()->with('message', 'Print job cancelled.');
+      return back()->with('success', 'Print job cancelled.');
     } catch (\Exception $e) {
       if (request()->wantsJson() && !request()->header('X-Inertia')) {
         return response()->json(['error' => 'Fail to cancel the print job', 'details' => $e->getMessage()], 500);
@@ -260,7 +260,7 @@ class PrintJobController extends Controller
       $printerService->processNextItem();
 
       if ($req->inertia()) {
-        return back()->with('message', 'Print job started successfully!');
+        return back()->with('success', 'Print job started successfully.');
       }
 
       PrinterDetail::reducePaperCount($printJob->total_pages);
