@@ -22,7 +22,6 @@ class EditRequestController extends Controller
       ]);
 
       $printJob->job->updateAggregatedStatus();
-
     } catch (Throwable $e) {
       Log::error("Trying to mark edit request as done failed: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
       return back()->with('error', 'An error occurred while updating the job: ' . $e->getMessage());
@@ -115,8 +114,7 @@ class EditRequestController extends Controller
     \Illuminate\Support\Collection $effectivePages,
     string                         $printColor,
     int                            $copies
-  ): int
-  {
+  ): int {
     $colorsByPage = collect($detectionData['colors'])->keyBy('page');
 
     $total = $effectivePages->reduce(function ($carry, $page) use ($colorsByPage, $printColor) {
@@ -132,7 +130,6 @@ class EditRequestController extends Controller
       }
 
       return $carry + ($pageInfo['price'] ?? GetConfigs::bnw());
-
     }, 0);
 
     return $total * $copies;
@@ -165,13 +162,7 @@ class EditRequestController extends Controller
   // Method for the api so the frontend get the pricing through the laravel server
   public function getPricing(Request $request)
   {
-    $validated = $request->validate([
-      'file' => ['required', 'file'],
-      'print_color' => ['required', 'in:bnw,color'],
-      'copies' => ['required', 'integer', 'min:1'],
-      'pages_to_print' => ['nullable', 'string'],
-    ]);
-
+    
     try {
       $file = $request->file('file');
 
@@ -180,26 +171,19 @@ class EditRequestController extends Controller
         $file->getClientOriginalName()
       );
 
-      $effectivePages = $this->getEffectivePageNumbers(
-        $validated['pages_to_print'],
-        $detectionData['total_pages']
-      );
-
-      $price = $this->calculateDynamicPrice(
-        $detectionData,
-        $effectivePages,
-        $validated['print_color'],
-        $validated['copies']
-      );
-
+      Log::info([
+        'total_pages' => $detectionData['total_pages'],
+        'data' => $detectionData['colors'],
+        'total_price' => $detectionData['total_price'],
+        'total_price_bnw' => $detectionData['total_price_bnw'],
+      ]);
       return response()->json([
         'success' => true,
         'total_pages' => $detectionData['total_pages'],
-        'colors' => $detectionData['colors'],
-        'price' => $price,
-        'paper_count' => $effectivePages->count() * $validated['copies'],
+        'data' => $detectionData['colors'],
+        'total_price' => $detectionData['total_price'],
+        'total_price_bnw' => $detectionData['total_price_bnw'],
       ]);
-
     } catch (\Throwable $e) {
       Log::error("Pricing preview failed: " . $e->getMessage());
 
@@ -234,6 +218,5 @@ class EditRequestController extends Controller
     }
 
     return $json['data'][0];
-
   }
 }
