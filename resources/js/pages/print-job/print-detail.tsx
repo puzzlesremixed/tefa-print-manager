@@ -1,4 +1,6 @@
+import { simulatePayment } from '@/actions/App/Http/Controllers/PrintJobController';
 import { FileUploadDialog } from '@/components/FileUploadDialog';
+import { SimulateChangeContainer } from '@/components/SimulateChange';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,7 +40,7 @@ import { cn } from '@/lib/utils';
 import { queue } from '@/routes';
 import assets from '@/routes/assets';
 
-import printJob from '@/routes/printJob';
+import printJob, { cancelPrintJob } from '@/routes/printJob';
 import type { BreadcrumbItem } from '@/types';
 import type { PrintJob, PrintJobDetail } from '@/types/data';
 import { Head, router } from '@inertiajs/react';
@@ -60,7 +62,6 @@ import {
   Plus,
   Printer,
   SquareArrowOutUpRightIcon,
-  Wallet,
 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 
@@ -82,6 +83,7 @@ interface QueueProps {
 export default function PrintJobDetails({ detail }: QueueProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PrintJobDetail | null>(null);
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Details" />
@@ -125,25 +127,34 @@ export default function PrintJobDetails({ detail }: QueueProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                {detail.status == 'pending_payment' ? 
-                <Fragment>
-                <DropdownMenuItem>
-                  <Wallet className="h-4 w-4" />
-                  Give change
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <HandCoins className="h-4 w-4" />
-                  Mark as paid
-                </DropdownMenuItem>
-                </Fragment>
-                :
-                <DropdownMenuItem>
-                  <ListStart className="h-4 w-4" />
-                  Move to queue
-                </DropdownMenuItem>
-                }
-                <DropdownMenuSeparator/>
-                <DropdownMenuItem>
+                {detail.status == 'pending_payment' ? (
+                  <Fragment>
+                    <SimulateChangeContainer type="context" printJob={detail} />
+                    <DropdownMenuItem
+                      onClick={() =>
+                        router.visit(simulatePayment(detail.id.toString()), {
+                          preserveState: true,
+                        })
+                      }
+                    >
+                      <HandCoins className="h-4 w-4" />
+                      Mark as paid
+                    </DropdownMenuItem>
+                  </Fragment>
+                ) : (
+                  <DropdownMenuItem>
+                    <ListStart className="h-4 w-4" />
+                    Move to queue
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.visit(cancelPrintJob(detail.id.toString()), {
+                      preserveState: true,
+                    })
+                  }
+                >
                   <Plus className="h-4 w-4 rotate-45" />
                   Cancel
                 </DropdownMenuItem>

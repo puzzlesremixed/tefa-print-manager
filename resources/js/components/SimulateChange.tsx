@@ -3,10 +3,17 @@ import SimulateChangeModal from '@/components/ui/simulate-change-modal';
 import { simulatePayment } from '@/routes/printJob';
 import { PrintJob } from '@/types/data';
 import { router } from '@inertiajs/react';
-import { Wallet } from 'lucide-react';
+import { Coins, Wallet } from 'lucide-react';
 import { useState } from 'react';
+import { DropdownMenuItem } from './ui/dropdown-menu';
 
-export function SimulateChangeContainer({ printJob }: { printJob: PrintJob }) {
+export function SimulateChangeContainer({
+  printJob,
+  type,
+}: {
+  printJob: PrintJob;
+  type?: 'table' | 'context';
+}) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [givenAmount, setGivenAmount] = useState('');
 
@@ -27,6 +34,33 @@ export function SimulateChangeContainer({ printJob }: { printJob: PrintJob }) {
     setIsModalOpen(false);
   };
 
+  if (type === 'context') {
+    return (
+      <>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.preventDefault();
+            setIsModalOpen(true);
+          }}
+        >
+          <Wallet className="h-4 w-4" />
+          Give change
+        </DropdownMenuItem>
+
+        <SimulateChangeModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          givenAmount={givenAmount}
+          onGivenAmountChange={handleGivenAmountChange}
+          price={price}
+          changeAmount={changeAmount}
+          onConfirm={handleConfirmPayment}
+          isConfirmDisabled={isConfirmDisabled}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <Button
@@ -34,8 +68,8 @@ export function SimulateChangeContainer({ printJob }: { printJob: PrintJob }) {
         variant={'secondary'}
         onClick={() => setIsModalOpen(true)}
       >
-        <Wallet className="mr-1 h-4 w-4" />
-        Kembalian
+        <Coins className="mr-1 h-4 w-4" />
+        Change
       </Button>
 
       <SimulateChangeModal

@@ -1,6 +1,4 @@
-import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface SimulateChangeModalProps {
   isOpen: boolean;
@@ -35,15 +35,15 @@ export default function SimulateChangeModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle>Simulasi Kembalian</DialogTitle>
+          <DialogTitle>Pay With Change</DialogTitle>
           <DialogDescription>
-            Masukkan nominal uang yang diberikan customer
+            Enter the amount of money given by the customer for the change calculation.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="givenAmount" className="text-right">
-              Nominal Uang
+              Amount
             </Label>
             <Input
               id="givenAmount"
@@ -51,7 +51,7 @@ export default function SimulateChangeModal({
               value={givenAmount}
               onChange={(e) => onGivenAmountChange(e.target.value)}
               className="col-span-3"
-              placeholder="Contoh: 20000"
+              placeholder="Ex: 20000"
               autoFocus
             />
           </div>
@@ -69,7 +69,7 @@ export default function SimulateChangeModal({
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right font-semibold">
-                  Kembalian
+                  Change
                 </Label>
                 <div className="col-span-3 font-bold text-green-600">
                   Rp {changeAmount.toLocaleString('id-ID')}
@@ -80,10 +80,10 @@ export default function SimulateChangeModal({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Batal
+            Cancel
           </Button>
           <Button onClick={onConfirm} disabled={isConfirmDisabled}>
-            Konfirmasi Pembayaran
+            Confirm Payment
           </Button>
         </DialogFooter>
       </DialogContent>
