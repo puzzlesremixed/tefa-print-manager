@@ -30,7 +30,7 @@ class LogApiRequests
     $status = $response->getStatusCode();
 
     // If errors, and request method is either get/head
-    if ($status < 400 && ($request->method() == 'GET' | $request->method() == 'HEAD' | $request->method() == 'OPTIONS')) {
+    if ($status < 400 && $request->method() != 'POST') {
         return;
     }
 
