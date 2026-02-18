@@ -48,6 +48,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
   Route::post('/print-job/{printJob}/cancel', [PrintJobController::class, 'cancelPrintJob'])->name('printJob.cancelPrintJob');
   // dispatch queued job
   Route::post('/print-job/{printJob}/dispatch', [PrintJobController::class, 'dispatchJob'])->name('printJob.dispatch');
+  // dispatch retry failed or completed job
+  Route::post('/print-job/{printJob}/retry', [PrintJobController::class, 'retryJob'])->name('printJob.retry');
+  // cancel currently printing job
+  Route::post('/print-job/cancel', [PrintJobController::class, 'cancelAll'])->name(name: 'printJob.cancelAll');
   // refresh list
   Route::post('/print-job/refresh', [PrintJobController::class, 'refreshQueue'])->name('printJob.refresh');
   // Uplaod file for an edit request

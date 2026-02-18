@@ -55,19 +55,71 @@ class PrintJob extends Model
    */
   public function dispatchToQueue(): void
   {
-    if ($this->status !== 'pending') {
+    if ($this->status === 'pending') {
+      DB::transaction(function () {
+        $this->update(['status' => 'queued']);
+
+        // Eager load details to avoid N+1 query problem inside the loop
+        $this->load('details');
+
+        foreach ($this->details as $detail) {
+          if ($detail->status === 'pending') {
+            $detail->setStatus('queued', 'Queued for printing.');
+          }
+        }
+      });
+    } else {
       throw new Exception("Job cannot be queued. Current status: {$this->status}. Required: pending.");
     }
+  }
 
-    DB::transaction(function () {
-      $this->update(['status' => 'queued']);
+  /**
+   * Retry and dispatch the job to the printer queue.
+   * Duplicate existing data into a new job and queue it.
+   * Must be 'completed', 'partially_failed', 'failed', or 'cancelled' and will be turned into 'queued'.
+   *
+   * @throws Exception
+   */
+  public function retryAndQueue(): void
+  {
+    $allowed_statuses = ['completed', 'partially_failed', 'failed', 'cancelled'];
 
-      foreach ($this->details as $detail) {
-        if ($detail->status === 'pending') {
-          $detail->setStatus('queued', 'Queued for printing.');
+    if (in_array($this->status, $allowed_statuses)) {
+      DB::transaction(function () {
+        // Replicate the current job instance.
+        // The replicate() method creates a copy of the model instance without the id, created_at, and updated_at.
+        $newJob = $this->replicate();
+
+        // Set the new job's status to 'queued'.
+        $newJob->status = 'queued';
+
+        // Save the new job to the database to get its new ID.
+        $newJob->save();
+
+        // Now, iterate through the original job's details and replicate them for the new job.
+        foreach ($this->details as $detail) {
+          $newDetail = $detail->replicate();
+
+          // Associate the new detail with the new parent job.
+          $newDetail->parent_id = $newJob->id;
+
+          // Reset the status and other relevant fields for the new detail.
+          $newDetail->status = 'queued';
+          $newDetail->attempts = 0;
+          $newDetail->locked_at = null;
+
+          $newDetail->save();
+
+          // Optionally, create an initial status log for the new detail.
+          $newDetail->logs()->create([
+            'status' => 'queued',
+            'message' => 'Retried job, queued for printing.'
+          ]);
         }
-      }
-    });
+      });
+    } else {
+      throw new Exception("Job cannot be retried. Current status: {$this->status}. Required: completed, partially_failed, failed, or cancelled.");
+    }
   }
 
   /**
@@ -76,19 +128,19 @@ class PrintJob extends Model
   public function updateAggregatedStatus(): void
   {
     $this->load('details');
-    $details = $this->details()->get();
+    $details = $this->details;
 
     if ($details->isEmpty()) {
       return;
     }
 
     $total = $details->count();
-    $queued = $details->whereIn('status', ['queued', 'pending'])->count();
     $printing = $details->where('status', 'printing')->count();
-    $request_edit = $details->where('status', 'request_edit')->count();
     $completed = $details->where('status', 'completed')->count();
     $failed = $details->where('status', 'failed')->count();
     $cancelled = $details->where('status', 'cancelled')->count();
+    $queued = $details->whereIn('status', ['queued', 'pending'])->count();
+    $request_edit = $details->where('status', 'request_edit')->count();
 
 
     // If any item is currently printing, the job is running
@@ -129,6 +181,5 @@ class PrintJob extends Model
       }
       return;
     }
-
   }
 }

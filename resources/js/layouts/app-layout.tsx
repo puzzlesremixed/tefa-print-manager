@@ -25,6 +25,7 @@ export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
         shownRef.current = true;
       } else if (Object.keys(errors).length > 0) {
         toast('Terjadi kesalahan.');
+        console.error(errors);
       }
     }
   }, [messages, errors]);

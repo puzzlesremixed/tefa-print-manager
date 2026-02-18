@@ -1,4 +1,8 @@
-import { simulatePayment } from '@/actions/App/Http/Controllers/PrintJobController';
+import {
+  dispatchJob,
+  retryJob,
+  simulatePayment,
+} from '@/actions/App/Http/Controllers/PrintJobController';
 import { FileUploadDialog } from '@/components/FileUploadDialog';
 import { SimulateChangeContainer } from '@/components/SimulateChange';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -141,10 +145,32 @@ export default function PrintJobDetails({ detail }: QueueProps) {
                       Mark as paid
                     </DropdownMenuItem>
                   </Fragment>
-                ) : (
-                  <DropdownMenuItem>
+                ) : detail.status === 'pending' ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      router.visit(dispatchJob(detail.id.toString()));
+                    }}
+                  >
                     <ListStart className="h-4 w-4" />
                     Move to queue
+                  </DropdownMenuItem>
+                ) : detail.status === 'completed' ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      router.visit(retryJob(detail.id.toString()));
+                    }}
+                  >
+                    <ListStart className="h-4 w-4" />
+                    Reprint this job
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      router.visit(retryJob(detail.id.toString()));
+                    }}
+                  >
+                    <ListStart className="h-4 w-4" />
+                    Retry to print
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />

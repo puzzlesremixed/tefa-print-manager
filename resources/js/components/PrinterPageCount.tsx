@@ -8,6 +8,7 @@ import { refresh } from '@/routes/printJob';
 import { PrinterStatusMap, type Printer, type PrintJob } from '@/types/data';
 import { Input } from './ui/input';
 import { Table, TableBody, TableCell, TableRow } from './ui/table';
+import { cancelAll } from '@/actions/App/Http/Controllers/PrintJobController';
 
 interface props {
   printer?: Printer;
@@ -38,7 +39,9 @@ const PrinterCount = ({ printer, runningFiles }: props) => {
             <Triangle className="rotate-90" />
             Run
           </Button>
-          <Button className="" variant={'secondary'}>
+          <Button onClick={() => router.visit(cancelAll(), {
+            method: 'post',
+          })} className="" variant={'secondary'}>
             <Square className="" />
             Stop
           </Button>

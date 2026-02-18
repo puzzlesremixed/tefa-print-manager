@@ -37,7 +37,7 @@ class PrintJobController extends Controller
       };
 
       $colorRule = function ($attribute, $value, $fail) use ($pageRangeRule) {
-        if (in_array(strtolower($value), ['color', 'bnw', 'full_color'])) {
+        if (in_array(strtolower($value), ['color', 'bnw', 'full_color', 'black_and_white'])) {
           return;
         }
         $pageRangeRule($attribute, $value, $fail);
@@ -75,7 +75,7 @@ class PrintJobController extends Controller
           'customer_number' => $request->customer_number,
           'total_price' => $request->total_price,
           'total_pages' => $request->total_pages,
-          'status' =>  $atleastOneNeedsEdit ? 'request_edit' : 'pending_payment',
+          'status' => $atleastOneNeedsEdit ? 'request_edit' : 'pending_payment',
         ]);
 
         foreach ($request->items as $item) {
@@ -84,6 +84,11 @@ class PrintJobController extends Controller
           $copies = $item['copies'] ?? 1;
           $editNote = $item['edit_notes'] ?? null;
           $needsEdit = $item['needs_edit'] == "true" ? true : false;
+
+          // Transform 'black_and_white' to 'bnw' to match the database enum.
+          if (strtolower($colorMode) === 'black_and_white') {
+            $colorMode = 'bnw';
+          }
 
           $path = $uploadedFile->store('print_uploads', 'local');
 
@@ -101,7 +106,7 @@ class PrintJobController extends Controller
             'extension' => $uploadedFile->extension(),
             'pages' => $totalFilePages,
           ]);
-            
+
           $dbColorMode = $colorMode;
           $monochromePages = null;
 
@@ -140,6 +145,30 @@ class PrintJobController extends Controller
     }
   }
 
+  public function cancelAll(Request $req)
+  {
+    if (!$req->inertia()) {
+      return response()->json([
+        'error' => 'Invalid Request',
+        'message' => 'This endpoint is only accessible via web interface.'
+      ], 400);
+    }
+
+    try {
+      $counts = DB::transaction(function () {
+        $jobs = PrintJob::where('status', 'running')->update(['status' => 'cancelled']);
+        $details = PrintJobDetail::where('status', 'printing')->update(['status' => 'cancelled']);
+
+        return compact('jobs', 'details');
+      });
+
+      return back()->with('success', "Cancelled {$counts['jobs']} job(s) and {$counts['details']} detail(s).");
+
+    } catch (\Exception $e) {
+      \Log::error("CancelAll failed: " . $e->getMessage());
+      return back()->withErrors(['status' => 'An error occurred while cancelling jobs.']);
+    }
+  }
 
   public function simulatePayment(PrintJob $printJob, Request $req)
   {
@@ -232,10 +261,10 @@ class PrintJobController extends Controller
   public function dispatchJob(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
   {
     try {
-      if ($printJob->status === 'pending') {
+      if ($printJob->status === 'pending' || $printJob->status === 'cancelled' || $printJob->status === 'failed' || $printJob->status === 'partially_failed' || $printJob->status === 'completed') {
         $printJob->dispatchToQueue();
-      } elseif ($printJob->status !== 'queued') {
-        $msg = "Job cannot be queued. Current status: {$printJob->status}. Required: pending or queued.";
+      } else {
+        $msg = "Job cannot be queued. Current status: {$printJob->status}. Required: pending, cancelled, failed, completed or partially_failed.";
         if ($req->inertia()) {
           return back()->withErrors(['status' => $msg]);
         }
@@ -245,7 +274,61 @@ class PrintJobController extends Controller
         ], 500);
       }
 
-      if (PrinterDetail::getPrimaryPaperCount()<$printJob->total_pages ) {
+      if (PrinterDetail::getPrimaryPaperCount() < $printJob->total_pages) {
+        $msg = "The printer is currently low on paper.";
+        if ($req->inertia()) {
+          return back()->withErrors(['status' => $msg]);
+        }
+        return response()->json([
+          'error' => 'Dispatch failed',
+          'message' => $msg
+        ], 500);
+      }
+
+
+      $printerService->processNextItem();
+
+      if ($req->inertia()) {
+        return back()->with('success', 'Print job started successfully.');
+      }
+
+      PrinterDetail::reducePaperCount($printJob->total_pages);
+
+      return response()->json([
+        'message' => 'Job successfully queued',
+        'status' => 'queued'
+      ]);
+    } catch (\Exception $e) {
+
+      $statusCode = 400;
+
+      if ($req->inertia()) {
+        return back()->withErrors(['status' => $e->getMessage()]);
+      }
+      return response()->json([
+        'error' => 'Dispatch failed',
+        'message' => $e->getMessage()
+      ], $statusCode);
+    }
+  }
+
+  public function retryJob(PrintJob $printJob, \App\Services\PrinterService $printerService, Request $req)
+  {
+    try {
+      if ($printJob->status === 'failed' || $printJob->status === 'completed' || $printJob->status === 'partially_failed' || $printJob->status === 'cancelled') {
+        $printJob->retryAndQueue();
+      } else {
+        $msg = "Job cannot be retried. Current status: {$printJob->status}. Required: failed, completed, partially_failed or cancelled.";
+        if ($req->inertia()) {
+          return back()->withErrors(['status' => $msg]);
+        }
+        return response()->json([
+          'error' => 'Dispatch failed',
+          'message' => $msg
+        ], 500);
+      }
+
+      if (PrinterDetail::getPrimaryPaperCount() < $printJob->total_pages) {
         $msg = "The printer is currently low on paper.";
         if ($req->inertia()) {
           return back()->withErrors(['status' => $msg]);

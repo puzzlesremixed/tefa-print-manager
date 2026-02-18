@@ -47,8 +47,16 @@ class PrinterService
 
     try {
       $printerApiUrl = GetConfigs::printServEnpoint() . '/print';
-      $webhookUrl = route('apiPrinter.webhook');
-      $filePath = $detail->asset->full_path;
+      $webhookUrl = route('api.printer.webhook');
+      $filePath = '';
+
+      if($detail->modified_asset()->exists()){
+        Log::info('Using modified asset for printing: ' . $detail->modified_asset->full_path);
+        $filePath = $detail->modified_asset->full_path;
+      } else {
+        Log::info('Using original asset for printing: ' . $detail->asset->full_path);
+        $filePath = $detail->asset->full_path;
+      }
 
       Log::info('Filepath' . $filePath);
 
@@ -68,11 +76,9 @@ class PrinterService
       } else {
         $payload['monochrome'] = $detail->print_color === 'bnw';
       }
-
       if ($detail->copies) {
         $payload['copies'] = $detail->copies;
       }
-
       if ($detail->paper_size) {
         $payload['paperSize'] = $detail->paper_size;
       }
