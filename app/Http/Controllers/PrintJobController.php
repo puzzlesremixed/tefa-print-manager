@@ -285,6 +285,7 @@ class PrintJobController extends Controller
         ], 500);
       }
 
+      PrinterDetail::reducePaperCount($printJob->total_pages);
 
       $printerService->processNextItem();
 
@@ -292,7 +293,6 @@ class PrintJobController extends Controller
         return back()->with('success', 'Print job started successfully.');
       }
 
-      PrinterDetail::reducePaperCount($printJob->total_pages);
 
       return response()->json([
         'message' => 'Job successfully queued',
@@ -339,14 +339,13 @@ class PrintJobController extends Controller
         ], 500);
       }
 
+      PrinterDetail::reducePaperCount($printJob->total_pages);
 
       $printerService->processNextItem();
 
       if ($req->inertia()) {
         return back()->with('success', 'Print job started successfully.');
       }
-
-      PrinterDetail::reducePaperCount($printJob->total_pages);
 
       return response()->json([
         'message' => 'Job successfully queued',
